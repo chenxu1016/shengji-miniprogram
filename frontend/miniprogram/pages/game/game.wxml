@@ -1,0 +1,179 @@
+<view class="game-page">
+  <!-- 顶部状态栏 -->
+  <view class="status-bar">
+    <view class="back-btn">←</view>
+    <view class="help-btn">?</view>
+    <view class="piggy-icon">🐷</view>
+  </view>
+
+  <!-- ========== 等待大厅 ========== -->
+  <view class="lobby-stage" wx:if="{{!gameStarted}}">
+    <view class="table-title">升级 · 四人桌</view>
+    
+    <!-- 左侧对手占位 -->
+    <view class="opponent-slot left-slot">
+      <view class="avatar-placeholder">
+        <text class="question-mark">?</text>
+      </view>
+      <text class="slot-label">玩家4</text>
+    </view>
+    
+    <!-- 右侧对手占位 -->
+    <view class="opponent-slot right-slot">
+      <view class="avatar-placeholder">
+        <text class="question-mark">?</text>
+      </view>
+      <text class="slot-label">玩家2</text>
+    </view>
+    
+    <!-- 上方对手占位 -->
+    <view class="opponent-slot top-slot">
+      <view class="avatar-placeholder">
+        <text class="question-mark">?</text>
+      </view>
+      <text class="slot-label">玩家3</text>
+    </view>
+    
+    <!-- 中间按钮区 -->
+    <view class="center-buttons">
+      <button class="action-btn ready-btn" bindtap="onSelfReady">
+        <text class="btn-icon">✓</text>
+        <text>{{selfReady ? '已准备' : '准备'}}</text>
+      </button>
+      <button class="action-btn start-btn {{allReady?'':'disabled'}}" bindtap="onDealCards" wx:if="{{allReady}}">
+        <text>开始发牌</text>
+      </button>
+    </view>
+  </view>
+
+  <!-- ========== 游戏进行阶段 ========== -->
+  <view class="game-stage" wx:if="{{gameStarted}}">
+    <!-- 左上角得分面板 -->
+    <view class="score-panel">
+      <view class="score-row">
+        <text class="score-label">我方(东南)</text>
+        <text class="score-value team-a">{{teamAScore}}级</text>
+      </view>
+      <view class="score-row">
+        <text class="score-label">对方(西北)</text>
+        <text class="score-value team-b">{{teamBScore}}级</text>
+      </view>
+      <view class="score-divider"></view>
+      <view class="bid-info">
+        <text class="bid-label">底分:</text>
+        <text class="bid-value">{{bidScoreText}}</text>
+      </view>
+    </view>
+
+    <!-- 对手区域 -->
+    <view class="opponents-area">
+      <!-- 上方(北-玩家3) -->
+      <view class="opponent opponent-top">
+        <view class="player-card {{currentPlayerIndex===2?'active':''}}">
+          <view class="mini-avatar">3</view>
+          <text class="player-name">玩家3</text>
+          <text class="card-count">{{p2Count}}张</text>
+        </view>
+        <view class="hand-back-stack">
+          <view class="back-card" wx:for="{{[1,2,3]}}" wx:key="index"></view>
+        </view>
+      </view>
+      
+      <!-- 左方(西-玩家4) -->
+      <view class="opponent opponent-left">
+        <view class="player-card {{currentPlayerIndex===3?'active':''}}">
+          <view class="mini-avatar">4</view>
+          <text class="player-name">玩家4</text>
+          <text class="card-count">{{p3Count}}张</text>
+        </view>
+        <view class="hand-back-stack">
+          <view class="back-card" wx:for="{{[1,2,3]}}" wx:key="index"></view>
+        </view>
+      </view>
+      
+      <!-- 右方(东-玩家2) -->
+      <view class="opponent opponent-right">
+        <view class="player-card {{currentPlayerIndex===1?'active':''}}">
+          <view class="mini-avatar">2</view>
+          <text class="player-name">玩家2</text>
+          <text class="card-count">{{p1Count}}张</text>
+        </view>
+        <view class="hand-back-stack">
+          <view class="back-card" wx:for="{{[1,2,3]}}" wx:key="index"></view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 叫分/出牌区 (桌子中央) -->
+    <view class="trick-area">
+      <view class="trick-center">
+        <!-- 叫分阶段：显示主牌选择 -->
+        <view class="bid-area" wx:if="{{showBidActions}}">
+          <text class="bid-status">亮主阶段</text>
+          <view class="suit-options">
+            <view class="suit-option nt" bindtap="onBidPass">NT</view>
+            <view class="suit-option spade" bindtap="onBidZero" data-suit="spade">♤</view>
+            <view class="suit-option heart" bindtap="onBidOne" data-suit="heart">♡</view>
+            <view class="suit-option club" bindtap="onBidTwo" data-suit="club">♧</view>
+            <view class="suit-option diamond" bindtap="onBidThree" data-suit="diamond">♢</view>
+          </view>
+        </view>
+        
+        <view class="played-cards" wx:elif="{{showPlayActions || !showBidActions}}">
+          <view class="played-card top {{trickCards[2]?'show':''}}" wx:if="{{trickCards[2]}}">
+            <text class="card-text {{trickCards[2].red?'red':''}}">{{trickCards[2].display}}</text>
+          </view>
+          <view class="played-card left {{trickCards[3]?'show':''}}" wx:if="{{trickCards[3]}}">
+            <text class="card-text {{trickCards[3].red?'red':''}}">{{trickCards[3].display}}</text>
+          </view>
+          <view class="played-card right {{trickCards[1]?'show':''}}" wx:if="{{trickCards[1]}}">
+            <text class="card-text {{trickCards[1].red?'red':''}}">{{trickCards[1].display}}</text>
+          </view>
+          <view class="played-card bottom {{trickCards[0]?'show':''}}" wx:if="{{trickCards[0]}}">
+            <text class="card-text {{trickCards[0].red?'red':''}}">{{trickCards[0].display}}</text>
+          </view>
+          <view class="placeholder" wx:if="{{!hasPlayedCards}}">等待出牌</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 我的手牌 (底部横排) -->
+    <view class="my-hand">
+      <scroll-view scroll-x class="hand-scroll" enable-flex>
+        <view class="hand-cards">
+          <block wx:for="{{myHand}}" wx:key="index">
+            <view class="card {{item.selected?'selected':''}} {{item.playable?'playable':'unplayable'}}" 
+                  bindtap="onCardTap" data-index="{{index}}">
+              <text class="card-text {{item.red?'red':''}}">{{item.display}}</text>
+            </view>
+          </block>
+        </view>
+      </scroll-view>
+      <text class="hand-count">共{{myHandCount}}张</text>
+    </view>
+
+    <!-- 操作按钮栏 -->
+    <view class="action-bar">
+      <button class="bar-btn pass-btn" bindtap="onBidPass" wx:if="{{showBidActions}}">过</button>
+      <button class="bar-btn bid-btn" bindtap="onBidZero" wx:if="{{showBidActions}}">亮主</button>
+      <button class="bar-btn play-btn {{selectedCards.length>0?'enabled':'disabled'}}" 
+              bindtap="onPlayConfirm" wx:if="{{showPlayActions}}">
+        出牌({{selectedCards.length}})
+      </button>
+      <button class="bar-btn cancel-btn" bindtap="onClearSelection" wx:if="{{showPlayActions}}">取消</button>
+      <text class="waiting-text" wx:if="{{!showBidActions && !showPlayActions}}">{{waitingText}}</text>
+    </view>
+
+    <!-- 底部玩家信息栏 -->
+    <view class="bottom-bar">
+      <view class="my-info">
+        <view class="mini-avatar self">我</view>
+        <text class="my-name">你</text>
+      </view>
+      <view class="game-info">
+        <text class="info-item">主牌: {{trumpText}}</text>
+        <text class="info-item">等级: {{levelText}}</text>
+      </view>
+    </view>
+  </view>
+</view>

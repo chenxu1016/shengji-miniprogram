@@ -1,0 +1,27 @@
+﻿node_modules/
+.git/
+.gitignore
+
+# Docs & misc
+*.md
+*.py
+*.ps1
+*.txt
+*.zip
+*.png
+*.jpg
+*.mp4
+*.wav
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Source only (not needed in container)
+frontend/
+fix_wxml.py
+setup_index.py

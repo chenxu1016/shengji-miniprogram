@@ -1,0 +1,10 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/game/game"
+  ],
+  "window": {
+    "navigationBarTitleText": "升级",
+    "backgroundColor": "#f0f0f0"
+  }
+}

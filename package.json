@@ -1,0 +1,13 @@
+﻿{
+    "version":  "1.0.0",
+    "name":  "shengji-miniprogram",
+    "description":  "升级扑克微信小程序",
+    "scripts":  {
+                    "dev:backend":  "cd backend \u0026\u0026 npx ts-node src/server.ts",
+                    "build":  "cd backend \u0026\u0026 npx tsc"
+                },
+    "engines":  {
+                    "node":  "\u003e=18"
+                },
+    "private":  true
+}

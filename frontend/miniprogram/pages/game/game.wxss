@@ -1,0 +1,677 @@
+/* ===== 全屏布局 - 横竖屏自适应 ===== */
+page {
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+}
+
+.game-page {
+  width: 100%;
+  height: 100vh;
+  background: radial-gradient(ellipse at center, #2d8e4e 0%, #1a6e3a 40%, #0f5c2b 100%);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 桌布纹理 */
+.game-page::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: 
+    repeating-linear-gradient(0deg, transparent, transparent 50rpx, rgba(255,255,255,0.015) 50rpx, rgba(255,255,255,0.015) 51rpx),
+    repeating-linear-gradient(90deg, transparent, transparent 50rpx, rgba(255,255,255,0.015) 50rpx, rgba(255,255,255,0.015) 51rpx);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* 金色边框装饰 */
+.game-page::after {
+  content: '';
+  position: absolute;
+  top: 20rpx; left: 20rpx; right: 20rpx; bottom: 20rpx;
+  border: 4rpx solid rgba(255,215,0,0.2);
+  border-radius: 40rpx;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ===== 顶部状态栏 ===== */
+.status-bar {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 24rpx;
+  background: rgba(0,0,0,0.6);
+  flex-shrink: 0;
+}
+
+.back-btn, .help-btn, .piggy-icon {
+  width: 64rpx;
+  height: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 32rpx;
+  border-radius: 12rpx;
+  background: rgba(255,255,255,0.1);
+}
+
+/* ===== 等待大厅 ===== */
+.lobby-stage {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.table-title {
+  font-size: 56rpx;
+  font-weight: bold;
+  color: #ffd700;
+  text-shadow: 0 4rpx 12rpx rgba(0,0,0,0.5);
+  letter-spacing: 8rpx;
+  margin-bottom: 80rpx;
+}
+
+/* 对手占位 */
+.opponent-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
+  margin: 0 40rpx;
+}
+
+.avatar-placeholder {
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.4);
+  border: 3rpx solid rgba(255,255,255,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.question-mark {
+  font-size: 48rpx;
+  color: rgba(255,255,255,0.5);
+}
+
+.slot-label {
+  font-size: 24rpx;
+  color: rgba(255,255,255,0.8);
+}
+
+/* 中间按钮区 */
+.center-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+  align-items: center;
+}
+
+.action-btn {
+  width: 200rpx;
+  height: 80rpx;
+  line-height: 80rpx;
+  font-size: 30rpx;
+  border-radius: 40rpx;
+  border: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  transition: all 0.3s;
+}
+
+.ready-btn {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: white;
+  box-shadow: 0 4rpx 16rpx rgba(34,197,94,0.4);
+}
+
+.start-btn {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  box-shadow: 0 4rpx 16rpx rgba(245,158,11,0.4);
+}
+
+.start-btn.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.btn-icon {
+  font-size: 32rpx;
+  font-weight: bold;
+}
+
+/* ===== 游戏进行阶段 ===== */
+.game-stage {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 上半部分：得分面板 + 对手 + 出牌区 */
+.game-top {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* 左上角得分面板 */
+.score-panel {
+  position: absolute;
+  top: 20rpx;
+  left: 20rpx;
+  z-index: 15;
+  background: rgba(0,0,0,0.6);
+  border-radius: 16rpx;
+  padding: 20rpx 24rpx;
+  border: 2rpx solid rgba(255,215,0,0.3);
+  min-width: 240rpx;
+}
+
+.score-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8rpx 0;
+}
+
+.score-label {
+  font-size: 24rpx;
+  color: rgba(255,255,255,0.7);
+}
+
+.score-value {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #ffd700;
+}
+
+.team-a {
+  color: #4ade80;
+}
+
+.team-b {
+  color: #f87171;
+}
+
+.score-divider {
+  height: 1rpx;
+  background: rgba(255,255,255,0.1);
+  margin: 12rpx 0;
+}
+
+.bid-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.bid-label {
+  font-size: 24rpx;
+  color: rgba(255,255,255,0.6);
+}
+
+.bid-value {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #ffd700;
+}
+
+/* 对手区域 */
+.opponents-area {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  min-height: 0;
+}
+
+.opponent {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 5;
+}
+
+.opponent-top {
+  top: 10rpx;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.opponent-left {
+  top: 50%;
+  left: 10rpx;
+  transform: translateY(-50%);
+}
+
+.opponent-right {
+  top: 50%;
+  right: 10rpx;
+  transform: translateY(-50%);
+}
+
+.player-card {
+  background: rgba(0,0,0,0.5);
+  border-radius: 16rpx;
+  padding: 12rpx 20rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8rpx;
+  border: 3rpx solid transparent;
+  transition: all 0.3s;
+}
+
+.player-card.active {
+  border-color: #ffd700;
+  background: rgba(255,215,0,0.2);
+  box-shadow: 0 0 20rpx rgba(255,215,0,0.3);
+}
+
+.mini-avatar {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24rpx;
+  font-weight: bold;
+  color: white;
+}
+
+.player-name {
+  font-size: 22rpx;
+  color: rgba(255,255,255,0.8);
+}
+
+.card-count {
+  font-size: 18rpx;
+  color: rgba(255,255,255,0.6);
+}
+
+.hand-back-stack {
+  position: relative;
+  width: 50rpx;
+  height: 70rpx;
+  margin-top: 8rpx;
+}
+
+.back-card {
+  position: absolute;
+  width: 44rpx;
+  height: 62rpx;
+  background: linear-gradient(135deg, #1e3a8a, #2563eb);
+  border-radius: 6rpx;
+  border: 2rpx solid rgba(255,255,255,0.3);
+}
+
+.back-card:nth-child(1) {
+  top: 0;
+  left: 0;
+}
+
+.back-card:nth-child(2) {
+  top: -6rpx;
+  left: 6rpx;
+}
+
+.back-card:nth-child(3) {
+  top: -12rpx;
+  left: 12rpx;
+}
+
+/* 出牌区 / 叫分区 (桌子中央) */
+.trick-area {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 60%;
+  height: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+}
+
+.trick-center {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* 叫分阶段 */
+.bid-area {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24rpx;
+}
+
+.bid-status {
+  font-size: 32rpx;
+  color: rgba(255,255,255,0.8);
+  text-shadow: 0 2rpx 8rpx rgba(0,0,0,0.5);
+}
+
+.suit-options {
+  display: flex;
+  gap: 16rpx;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.suit-option {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 16rpx;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36rpx;
+  color: #333;
+  border: 3rpx solid #ddd;
+  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.3);
+  transition: all 0.2s;
+}
+
+.suit-option.nt {
+  background: rgba(255,255,255,0.3);
+  color: rgba(255,255,255,0.7);
+  font-size: 24rpx;
+  font-weight: bold;
+}
+
+.suit-option.spade {
+  color: #1e293b;
+}
+
+.suit-option.heart {
+  color: #dc2626;
+}
+
+.suit-option.club {
+  color: #1e293b;
+}
+
+.suit-option.diamond {
+  color: #dc2626;
+}
+
+/* 出牌阶段：已出的牌 */
+.played-cards {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.played-card {
+  position: absolute;
+  width: 80rpx;
+  height: 110rpx;
+  background: white;
+  border-radius: 8rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.4);
+  opacity: 0;
+  transform: scale(0.5);
+  transition: all 0.3s ease-out;
+}
+
+.played-card.show {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.card-text {
+  font-size: 26rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.red-card {
+  color: #dc2626;
+}
+
+.played-card.top {
+  top: -30rpx;
+  left: 50%;
+  transform: translateX(-50%) scale(0.5);
+}
+
+.played-card.top.show {
+  transform: translateX(-50%) scale(1);
+}
+
+.played-card.bottom {
+  bottom: -30rpx;
+  left: 50%;
+  transform: translateX(-50%) scale(0.5);
+}
+
+.played-card.bottom.show {
+  transform: translateX(-50%) scale(1);
+}
+
+.played-card.left {
+  top: 50%;
+  left: -40rpx;
+  transform: translateY(-50%) scale(0.5);
+}
+
+.played-card.left.show {
+  transform: translateY(-50%) scale(1);
+}
+
+.played-card.right {
+  top: 50%;
+  right: -40rpx;
+  transform: translateY(-50%) scale(0.5);
+}
+
+.played-card.right.show {
+  transform: translateY(-50%) scale(1);
+}
+
+.placeholder {
+  color: rgba(255,255,255,0.3);
+  font-size: 28rpx;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* ===== 下半部分：操作栏 + 手牌 + 底部信息 ===== */
+.game-bottom {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+/* 操作按钮栏 */
+.action-bar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 16rpx;
+  flex-wrap: wrap;
+  padding: 12rpx 20rpx;
+  background: rgba(0,0,0,0.3);
+}
+
+.bar-btn {
+  height: 56rpx;
+  padding: 0 24rpx;
+  border-radius: 12rpx;
+  font-size: 26rpx;
+  border: none;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pass-btn {
+  background: #666;
+}
+
+.bid-btn {
+  background: #2563eb;
+}
+
+.play-btn.enabled {
+  background: #22c55e;
+}
+
+.play-btn.disabled {
+  background: #666;
+  opacity: 0.5;
+}
+
+.cancel-btn {
+  background: #ef4444;
+}
+
+.waiting-text {
+  color: rgba(255,255,255,0.6);
+  font-size: 26rpx;
+}
+
+/* 我的手牌 (底部横排) */
+.my-hand {
+  padding: 16rpx 20rpx 8rpx;
+  background: linear-gradient(to top, rgba(0,0,0,0.5), rgba(0,0,0,0.2));
+}
+
+.hand-scroll {
+  width: 100%;
+}
+
+.hand-cards {
+  display: flex;
+  gap: 0;
+  padding-bottom: 8rpx;
+}
+
+.card {
+  width: 68rpx;
+  height: 96rpx;
+  background: white;
+  border-radius: 6rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: -20rpx;
+  transition: all 0.2s;
+  border: 2rpx solid #ddd;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.card:first-child {
+  margin-left: 10rpx;
+}
+
+.card:last-child {
+  margin-right: 10rpx;
+}
+
+.card.selected {
+  margin-top: -20rpx;
+  border-color: #ffd700;
+  box-shadow: 0 -8rpx 20rpx rgba(255,215,0,0.5);
+}
+
+.card.playable {
+  opacity: 1;
+}
+
+.card.unplayable {
+  opacity: 0.4;
+}
+
+/* 底部玩家信息栏 */
+.bottom-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16rpx;
+  padding: 8rpx 20rpx 16rpx;
+  background: rgba(0,0,0,0.4);
+}
+
+.my-info {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.my-info .mini-avatar.self {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.my-name {
+  font-size: 26rpx;
+  color: white;
+  font-weight: bold;
+}
+
+.info-item {
+  font-size: 20rpx;
+  color: rgba(255,255,255,0.6);
+}
+
+/* 日志 */
+.log-panel {
+  max-height: 120rpx;
+  background: rgba(0,0,0,0.2);
+  padding: 8rpx 16rpx;
+}
+
+.log-scroll {
+  font-size: 18rpx;
+  color: rgba(255,255,255,0.5);
+}
+
+.log-item {
+  display: block;
+  padding: 2rpx 0;
+}

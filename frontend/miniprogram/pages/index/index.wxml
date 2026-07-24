@@ -1,0 +1,82 @@
+<view class="container">
+  <view class="title-area">
+    <text class="title">升级</text>
+    <text class="subtitle">四人在线对战</text>
+  </view>
+
+  <!-- 未连接状态 -->
+  <view class="section" wx:if="{{!connected}}">
+    <view class="status-text">正在连接服务器...</view>
+  </view>
+
+  <!-- 已连接 - 房间大厅 -->
+  <view class="lobby" wx:if="{{connected}}">
+    <view class="lobby-card">
+      <view class="card-header">
+        <text class="card-title">在线房间</text>
+        <text class="room-count">共 {{roomList.length}} 间</text>
+      </view>
+
+      <button class="btn btn-create" bindtap="onCreateRoom">
+        <text class="btn-icon">+</text>
+        <text>创建房间</text>
+      </button>
+
+      <view class="join-section">
+        <input class="input-room-id" placeholder="输入房间号" value="{{joinRoomId}}" bindinput="onJoinRoomIdInput" />
+        <button class="btn btn-join" bindtap="onJoinRoom" disabled="{{!joinRoomId}}">加入房间</button>
+      </view>
+
+      <view class="room-list" wx:if="{{roomList.length > 0}}">
+        <view class="room-item" wx:for="{{roomList}}" wx:key="id" bindtap="onJoinRoomById" data-room="{{item}}">
+          <view class="room-info">
+            <text class="room-name">房间 {{item.id}}</text>
+            <text class="room-players">{{item.playerCount}}/{{item.maxPlayers}} 人</text>
+          </view>
+          <view class="room-status {{item.playerCount >= item.maxPlayers ? 'full' : 'open'}}">
+            {{item.playerCount >= item.maxPlayers ? '已满' : '可加入'}}
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 在房间内 -->
+  <view class="in-room" wx:if="{{inRoom}}">
+    <view class="room-panel">
+      <view class="room-header">
+        <text class="room-id">房间 {{currentRoomId}}</text>
+        <text class="player-count">{{roomPlayerCount}}/4 人</text>
+      </view>
+
+      <view class="player-list">
+        <view class="player-item {{index === myIndex ? 'self' : ''}}" wx:for="{{roomPlayers}}" wx:key="index">
+          <view class="player-avatar">{{index + 1}}</view>
+          <text class="player-name">{{item.name}}</text>
+          <text class="player-ready {{item.ready ? 'ready' : ''}}">{{item.ready ? '已准备' : '等待'}}</text>
+        </view>
+      </view>
+
+      <view class="action-area">
+        <button class="btn btn-ready {{selfReady ? 'ready-btn' : ''}}" bindtap="onToggleReady">
+          {{selfReady ? '已准备' : '准备'}}
+        </button>
+        <button class="btn btn-start" bindtap="onStartGame" wx:if="{{allReady}}">
+          开始游戏
+        </button>
+        <button class="btn btn-leave" bindtap="onLeaveRoom">
+          退出房间
+        </button>
+      </view>
+
+      <view class="waiting-hint" wx:if="{{!allReady && roomPlayerCount < 4}}">
+        <text>等待其他玩家加入...</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="info">
+    <text>双升 · 拖拉机 · 升级</text>
+    <text class="version">v1.0 在线版</text>
+  </view>
+</view>

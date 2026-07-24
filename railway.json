@@ -1,0 +1,15 @@
+﻿services:
+  - name: shengji-backend
+    type: web
+    env: node
+    region: oregon
+    plan: starter
+    buildCommand: cd backend && npm ci && npx tsc
+    startCommand: cd backend && node dist/server.js
+    healthCheckPath: /
+    port: 8888
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8888

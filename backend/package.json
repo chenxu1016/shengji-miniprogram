@@ -1,0 +1,19 @@
+﻿{
+    "version":  "1.0.0",
+    "name":  "shengji-backend",
+    "description":  "升级扑克 WebSocket 服务器",
+    "scripts":  {
+                    "build":  "tsc",
+                    "dev":  "ts-node src/server.ts",
+                    "start":  "node dist/server.js"
+                },
+    "dependencies":  {
+                         "ws":  "^8.21.0"
+                     },
+    "devDependencies":  {
+                            "typescript":  "^5.4.5",
+                            "@types/node":  "^26.1.1",
+                            "@types/ws":  "^8.18.1"
+                        },
+    "main":  "dist/server.js"
+}

@@ -1,0 +1,11 @@
+﻿services:
+  - name: shengji-backend
+    type: web
+    env: docker
+    region: frankfurt
+    plan: basic
+    healthCheckPath: /
+    disk:
+      name: shengji-data
+      mountPath: /data
+      sizeGB: 1

@@ -1,0 +1,20 @@
+﻿{
+  "buildCommand": "cd backend && npm install && npx tsc",
+  "startCommand": "cd backend && node dist/server.js",
+  "env": [
+    {
+      "key": "NODE_ENV",
+      "value": "production"
+    },
+    {
+      "key": "PORT",
+      "value": "8888"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/"
+    }
+  ]
+}
