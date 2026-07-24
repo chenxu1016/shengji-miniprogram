@@ -84,6 +84,15 @@ Page({
       this.setData({ roomList: rooms });
     }.bind(this));
 
+    // Also refresh room list when any room updates
+    wsClient.onMessage('roomUpdate', function(msg) {
+      console.log('[Index] roomUpdate for list refresh:', msg);
+      if (msg.room && msg.room.id) {
+        // Re-fetch all rooms to keep list in sync
+        wsClient.send({ type: 'getRooms' });
+      }
+    }.bind(this));
+
     wsClient.onMessage('playerReady', function(msg) {
       console.log('[Index] playerReady:', msg);
       var stored = wx.getStorageSync('roomPlayers');
