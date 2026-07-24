@@ -331,20 +331,19 @@ function handleMessage(ws: WebSocket, data: string): void {
       case 'roundEnd':
         handleRoundEnd(ws);
         break;
-
-          
-          case 'getRooms':
-            const roomList: any[] = [];
-            rooms.forEach((room) => {
-              roomList.push({
-                id: room.id,
-                playerCount: room.players.length,
-                maxPlayers: 4,
-                gameState: room.session?.state || 'waiting',
-              });
-            });
-            sendToWs(ws, { type: 'roomList', rooms: roomList });
-            break;        
+        
+      case 'getRooms':
+        const roomList: any[] = [];
+        rooms.forEach((room) => {
+          roomList.push({
+            id: room.id,
+            playerCount: room.players.length,
+            maxPlayers: 4,
+            gameState: room.session?.state || 'waiting',
+          });
+        });
+        sendToWs(ws, { type: 'roomList', rooms: roomList });
+        break;
       default:
         console.warn('[Server] Unknown message type:', msg.type);
     }
