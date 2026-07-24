@@ -2,8 +2,6 @@
 import { createGame, makeBid, playCards, attemptReverse } from './rules/gameEngine';
 import { BidOption } from './rules/bidding';
 import { GameState, RoundResult } from './rules/scoring';
-import type { IncomingMessage } from 'http';
-import http from 'http';
 
 // ============================================
 // 绫诲瀷瀹氫箟
@@ -440,23 +438,21 @@ function getRoomInfo(room: Room): any {
 // WebSocket 鏈嶅姟鍣ㄥ惎鍔?
 // ============================================
 
-const wss = new WebSocket.Server({ port: 8888, host: '0.0.0.0' });
+// HTTP server that also serves WebSocket
+const httpServer = require('http').createServer();
 
-console.log('[Server] WebSocket server started on ws://localhost:8888');
-
-// HTTP Health Check (shares same port as WebSocket)
-wss.on('listening', () => {
-  const httpServer = (wss as any).httpServer || (wss as any).server;
-  if (httpServer) {
-    httpServer.on('request', (req: IncomingMessage, res: any) => {
-      if (req.url === '/health' || req.url === '/') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ status: 'ok', rooms: rooms.size }));
-      }
-    });
+// HTTP Health Check
+httpServer.on('request', (req: any, res: any) => {
+  if (req.url === '/health' || req.url === '/') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: 'ok', rooms: rooms.size }));
   }
 });
 
+// WebSocket server attached to HTTP server
+const wss = new WebSocket.Server({ server: httpServer });
+
+console.log('[Server] WebSocket server started on ws://localhost:8888');
 
 wss.on('connection', (ws: WebSocket) => {
   console.log('[Server] New connection');
@@ -477,25 +473,6 @@ wss.on('connection', (ws: WebSocket) => {
 });
 
 // 浼橀泤閫€鍑?
-// ============================================
-// HTTP Health Check Endpoint
-// ============================================
-
-const HEALTH_PORT = parseInt(process.env.HEALTH_PORT || '3000', 10);
-const healthServer = http.createServer((req, res) => {
-  if (req.url === '/health' || req.url === '/') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ status: 'ok', rooms: rooms.size }));
-  } else {
-    res.writeHead(404);
-    res.end('Not Found');
-  }
-});
-
-healthServer.listen(HEALTH_PORT, '0.0.0.0', () => {
-  console.log('[Server] Health check server started on port ' + HEALTH_PORT);
-});
-
 process.on('SIGINT', () => {
   console.log('\n[Server] Shutting down...');
   wss.close();
