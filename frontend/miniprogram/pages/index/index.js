@@ -16,13 +16,16 @@ Page({
 
   onLoad() {
     // Set default player name from WeChat
-    const systemInfo = wx.getSystemInfoSync();
     let playerName = '玩家';
-    if (systemInfo.nickName) {
-      playerName = systemInfo.nickName.substring(0, 8);
-    } else if (systemInfo.deviceBrand) {
-      playerName = systemInfo.deviceBrand.substring(0, 6);
-    }
+    try {
+      const setting = wx.getSystemSetting ? wx.getSystemSetting() : {};
+      const appBaseInfo = wx.getAppBaseInfo ? wx.getAppBaseInfo() : {};
+      if (appBaseInfo.nickName) {
+        playerName = appBaseInfo.nickName.substring(0, 8);
+      } else if (appBaseInfo.deviceBrand) {
+        playerName = appBaseInfo.deviceBrand.substring(0, 6);
+      }
+    } catch(e) {}
     wx.setStorageSync('playerName', playerName);
     this.connectServer();
   },
