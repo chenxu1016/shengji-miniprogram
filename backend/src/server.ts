@@ -450,7 +450,11 @@ httpServer.on('request', (req: any, res: any) => {
 });
 
 // WebSocket server attached to HTTP server
+const PORT = parseInt(process.env.PORT || '8888', 10);
 const wss = new WebSocket.Server({ server: httpServer });
+httpServer.listen(PORT, '0.0.0.0', () => {
+  console.log('[Server] HTTP + WebSocket server started on port ' + PORT);
+});
 
 console.log('[Server] WebSocket server started on ws://localhost:8888');
 
