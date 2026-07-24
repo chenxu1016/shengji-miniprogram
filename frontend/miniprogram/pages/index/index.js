@@ -42,7 +42,13 @@ Page({
 
     wsClient.onMessage('roomUpdate', function(msg) {
       console.log('[Index] roomUpdate:', msg);
+      // Update room list whenever any room changes
       if (msg.room) {
+        // Fetch updated room list
+        wsClient.send({ type: 'getRooms' });
+      }
+      if (msg.room && msg.players) {
+        // This is a room we joined
         var players = (msg.players || []).map(function(p) {
           return {
             name: p.name,
@@ -84,14 +90,6 @@ Page({
       this.setData({ roomList: rooms });
     }.bind(this));
 
-    // Also refresh room list when any room updates
-    wsClient.onMessage('roomUpdate', function(msg) {
-      console.log('[Index] roomUpdate for list refresh:', msg);
-      if (msg.room && msg.room.id) {
-        // Re-fetch all rooms to keep list in sync
-        wsClient.send({ type: 'getRooms' });
-      }
-    }.bind(this));
 
     wsClient.onMessage('playerReady', function(msg) {
       console.log('[Index] playerReady:', msg);
