@@ -2,6 +2,7 @@
 import { createGame, makeBid, playCards, attemptReverse } from './rules/gameEngine';
 import { BidOption } from './rules/bidding';
 import { GameState, RoundResult } from './rules/scoring';
+import http from 'http';
 
 // ============================================
 // 绫诲瀷瀹氫箟
@@ -461,6 +462,25 @@ wss.on('connection', (ws: WebSocket) => {
 });
 
 // 浼橀泤閫€鍑?
+// ============================================
+// HTTP Health Check Endpoint
+// ============================================
+
+const HEALTH_PORT = parseInt(process.env.HEALTH_PORT || '3000', 10);
+const healthServer = http.createServer((req, res) => {
+  if (req.url === '/health' || req.url === '/') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: 'ok', rooms: rooms.size }));
+  } else {
+    res.writeHead(404);
+    res.end('Not Found');
+  }
+});
+
+healthServer.listen(HEALTH_PORT, '0.0.0.0', () => {
+  console.log('[Server] Health check server started on port ' + HEALTH_PORT);
+});
+
 process.on('SIGINT', () => {
   console.log('\n[Server] Shutting down...');
   wss.close();
