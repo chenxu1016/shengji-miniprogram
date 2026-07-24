@@ -2,6 +2,7 @@
 import { createGame, makeBid, playCards, attemptReverse } from './rules/gameEngine';
 import { BidOption } from './rules/bidding';
 import { GameState, RoundResult } from './rules/scoring';
+import type { IncomingMessage } from 'http';
 import http from 'http';
 
 // ============================================
@@ -442,6 +443,20 @@ function getRoomInfo(room: Room): any {
 const wss = new WebSocket.Server({ port: 8888, host: '0.0.0.0' });
 
 console.log('[Server] WebSocket server started on ws://localhost:8888');
+
+// HTTP Health Check (shares same port as WebSocket)
+wss.on('listening', () => {
+  const httpServer = (wss as any).httpServer || (wss as any).server;
+  if (httpServer) {
+    httpServer.on('request', (req: IncomingMessage, res: any) => {
+      if (req.url === '/health' || req.url === '/') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ok', rooms: rooms.size }));
+      }
+    });
+  }
+});
+
 
 wss.on('connection', (ws: WebSocket) => {
   console.log('[Server] New connection');
