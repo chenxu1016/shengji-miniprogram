@@ -15,6 +15,15 @@ Page({
   },
 
   onLoad() {
+    // Set default player name from WeChat
+    const systemInfo = wx.getSystemInfoSync();
+    let playerName = '玩家';
+    if (systemInfo.nickName) {
+      playerName = systemInfo.nickName.substring(0, 8);
+    } else if (systemInfo.deviceBrand) {
+      playerName = systemInfo.deviceBrand.substring(0, 6);
+    }
+    wx.setStorageSync('playerName', playerName);
     this.connectServer();
   },
 
@@ -95,7 +104,7 @@ Page({
 
   onCreateRoom: function() {
     if (!wsClient) return;
-    wsClient.send({ type: 'createRoom', name: '我' });
+    wsClient.send({ type: 'createRoom', name: wx.getStorageSync('playerName') || '玩家' });
   },
 
   onJoinRoomIdInput: function(e) {
@@ -106,7 +115,7 @@ Page({
     var roomId = this.data.joinRoomId;
     if (!roomId) return;
     if (!wsClient) return;
-    wsClient.send({ type: 'joinRoom', roomId: roomId, name: '我' });
+    wsClient.send({ type: 'joinRoom', roomId: roomId, name: wx.getStorageSync('playerName') || '玩家' });
     this.setData({ joinRoomId: '' });
   },
 
