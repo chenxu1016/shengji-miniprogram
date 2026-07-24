@@ -1,3 +1,6 @@
 ﻿[nixpacks]
 buildCommand = "cd backend && npm install && npx tsc"
 startCommand = "cd backend && node dist/server.js"
+
+[phases.setup]
+cmds = ["apt-get update && apt-get install -y ca-certificates"]
