@@ -24,8 +24,8 @@ Page({
 
     wsClient.onConnect(function() {
       console.log('[Index] Connected to server');
-      // 本地测试：自动创建房间
-      wsClient.send({ type: 'createRoom', name: '我' });
+      // Fetch existing rooms
+      wsClient.send({ type: 'getRooms' });
     });
 
     wsClient.onMessage('roomUpdate', function(msg) {
@@ -63,6 +63,14 @@ Page({
     wsClient.onMessage('error', function(msg) {
       wx.showToast({ title: msg.message || '错误', icon: 'none' });
     });
+
+    wsClient.onMessage('roomList', function(msg) {
+      console.log('[Index] roomList:', msg);
+      var rooms = (msg.rooms || []).map(function(r) {
+        return { id: r.id, playerCount: r.playerCount, maxPlayers: r.maxPlayers, gameState: r.gameState };
+      });
+      this.setData({ roomList: rooms });
+    }.bind(this));
 
     wsClient.onMessage('playerReady', function(msg) {
       console.log('[Index] playerReady:', msg);

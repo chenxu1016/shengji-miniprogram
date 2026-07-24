@@ -37,7 +37,7 @@ const playerRooms = new Map<WebSocket, PlayerSocket>();
 let nextRoomId = 1;
 
 function generateRoomId(): string {
-  return 'room_' + String(nextRoomId++).padStart(4, '0');
+  return String(nextRoomId++).padStart(4, '0');
 }
 
 // ============================================
@@ -331,7 +331,20 @@ function handleMessage(ws: WebSocket, data: string): void {
       case 'roundEnd':
         handleRoundEnd(ws);
         break;
-        
+
+          
+          case 'getRooms':
+            const roomList: any[] = [];
+            rooms.forEach((room) => {
+              roomList.push({
+                id: room.id,
+                playerCount: room.players.length,
+                maxPlayers: 4,
+                gameState: room.session?.state || 'waiting',
+              });
+            });
+            sendToWs(ws, { type: 'roomList', rooms: roomList });
+            break;        
       default:
         console.warn('[Server] Unknown message type:', msg.type);
     }
