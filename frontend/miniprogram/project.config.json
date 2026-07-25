@@ -1,59 +1,43 @@
 {
-    "description":  "项目配置文件",
-    "appid":  "wx8799e26e2471e16f",
-    "compileType":  "miniprogram",
-    "projectname":  "shengji-miniprogram",
-    "setting":  {
-                    "uglifyFileName":  false,
-                    "postcss":  true,
-                    "disableSWC":  true,
-                    "swc":  false,
-                    "es6":  true,
-                    "minifyWXSS":  true,
-                    "disableUseStrict":  false,
-                    "minifyWXML":  true,
-                    "localPlugins":  false,
-                    "uploadWithSourceMap":  true,
-                    "minified":  true,
-                    "babelSetting":  {
-                                         "ignore":  [
-
-                                                    ],
-                                         "disablePlugins":  [
-
-                                                            ],
-                                         "outputPath":  ""
-                                     },
-                    "compileWorklet":  false,
-                    "packNpmRelationList":  [
-
-                                            ],
-                    "packNpmManually":  false,
-                    "enhance":  true,
-                    "condition":  false,
-                    "useCompilerPlugins":  false
-                },
-    "urlCheck":  false,
-    "libVersion":  "latest",
-    "condition":  {
-
-                  },
-    "packOptions":  {
-                        "include":  [
-
-                                    ],
-                        "ignore":  [
-
-                                   ]
-                    },
-    "simulatorPluginLibVersion":  {
-
-                                  },
-    "window":  {
-
-               },
-    "editorSetting":  {
-                          "tabSize":  2,
-                          "tabIndent":  "insertSpaces"
-                      }
+  "description": "项目配置文件",
+  "appid": "wxce9147811cd3f5b9",
+  "compileType": "miniprogram",
+  "projectname": "shengji-miniprogram",
+  "setting": {
+    "uglifyFileName": false,
+    "postcss": true,
+    "disableSWC": true,
+    "swc": false,
+    "es6": true,
+    "minifyWXSS": true,
+    "disableUseStrict": false,
+    "minifyWXML": true,
+    "localPlugins": false,
+    "uploadWithSourceMap": true,
+    "minified": true,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    },
+    "compileWorklet": false,
+    "packNpmRelationList": [],
+    "packNpmManually": false,
+    "enhance": true,
+    "condition": false,
+    "useCompilerPlugins": false
+  },
+  "urlCheck": false,
+  "libVersion": "latest",
+  "condition": {},
+  "packOptions": {
+    "include": [],
+    "ignore": []
+  },
+  "simulatorPluginLibVersion": {},
+  "window": {},
+  "editorSetting": {
+    "tabSize": 2,
+    "tabIndent": "insertSpaces"
+  }
 }

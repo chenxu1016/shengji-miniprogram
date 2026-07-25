@@ -4,7 +4,7 @@
  */
 
 // 开发环境用本地地址，部署时改成云函数或公网地址
-# TODO: Change this to your Railway deployment URL
+// Railway deployment URL
 var SERVER_URL = 'wss://shengji-backend-production.up.railway.app';
 
 // 全局单例
