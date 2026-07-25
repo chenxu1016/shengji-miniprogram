@@ -333,6 +333,10 @@ function handleMessage(ws: WebSocket, data: string): void {
         break;
         
       case 'getRooms':
+        console.log('[Server] getRooms called, total rooms:', rooms.size);
+        rooms.forEach((room, id) => {
+          console.log('[Server]   Room', id, '- players:', room.players.length);
+        });
         const roomList: any[] = [];
         rooms.forEach((room) => {
           roomList.push({
