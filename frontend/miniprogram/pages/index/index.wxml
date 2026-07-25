@@ -51,9 +51,12 @@
 
       <view class="player-list">
         <view class="player-item {{index === myIndex ? 'self' : ''}}" wx:for="{{roomPlayers}}" wx:key="index">
-          <view class="player-avatar">{{index + 1}}</view>
-          <text class="player-name">{{item.name}}</text>
-          <text class="player-ready {{item.ready ? 'ready' : ''}}">{{item.ready ? '已准备' : '等待'}}</text>
+          <image class="player-avatar-img" wx:if="{{item.avatar}}" src="{{item.avatar}}" mode="aspectFill"></image>
+          <view class="player-avatar" wx:else>{{index + 1}}</view>
+          <view class="player-info">
+            <text class="player-name">{{item.nickname || item.name}}</text>
+            <text class="player-ready {{item.ready ? 'ready' : ''}}">{{item.ready ? '已准备' : '等待'}}</text>
+          </view>
         </view>
       </view>
 

@@ -10,6 +10,8 @@ import { GameState, RoundResult } from './rules/scoring';
 interface PlayerSocket {
   ws: WebSocket;
   name: string;
+  nickname: string;
+  avatar: string;
   roomId: string;
   playerIndex: number; // 0-3
   ready: boolean;
@@ -44,7 +46,7 @@ function generateRoomId(): string {
 // 鎴块棿绠＄悊
 // ============================================
 
-function createRoom(hostName: string, ws: WebSocket): Room {
+function createRoom(hostName: string, nickname: string, avatar: string, ws: WebSocket): Room {
   const roomId = generateRoomId();
   const session = createGame({ numDecks: 2 });
   
@@ -58,6 +60,8 @@ function createRoom(hostName: string, ws: WebSocket): Room {
   room.players.push({
     ws,
     name: hostName || '鐜╁1',
+    nickname: nickname || '',
+    avatar: avatar || '',
     roomId,
     playerIndex: 0,
     ready: false,
@@ -81,7 +85,7 @@ function createRoom(hostName: string, ws: WebSocket): Room {
   return room;
 }
 
-function joinRoom(roomId: string, playerName: string, ws: WebSocket): Room | null {
+function joinRoom(roomId: string, msg: any, ws: WebSocket): Room | null {
   const room = rooms.get(roomId);
   if (!room) return null;
   if (room.players.length >= 4) {
@@ -90,9 +94,12 @@ function joinRoom(roomId: string, playerName: string, ws: WebSocket): Room | nul
   }
 
   const playerIndex = room.players.length;
+  const playerName = msg.name || ('鐜╁' + (playerIndex + 1));
   const player: PlayerSocket = {
     ws,
-    name: playerName || ('鐜╁' + (playerIndex + 1)),
+    name: playerName,
+    nickname: msg.nickname || '',
+    avatar: msg.avatar || '',
     roomId,
     playerIndex,
     ready: false,
@@ -297,11 +304,11 @@ function handleMessage(ws: WebSocket, data: string): void {
     
     switch (msg.type) {
       case 'createRoom':
-        createRoom(msg.name || '鐜╁1', ws);
+        createRoom(msg.name || '鐜╁1', msg.nickname || '', msg.avatar || '', ws);
         break;
         
       case 'joinRoom':
-        joinRoom(msg.roomId, msg.name || '鐜╁', ws);
+        joinRoom(msg.roomId, msg, ws);
         break;
         
       case 'leaveRoom':
@@ -444,6 +451,8 @@ function getRoomInfo(room: Room): any {
     gameState: room.session?.state || 'waiting',
     players: room.players.map(p => ({
       name: p.name,
+      nickname: p.nickname,
+      avatar: p.avatar,
       playerIndex: p.playerIndex,
       ready: p.ready,
     })),

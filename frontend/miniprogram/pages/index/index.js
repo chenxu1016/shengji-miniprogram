@@ -52,6 +52,8 @@ Page({
         var players = (msg.players || []).map(function(p) {
           return {
             name: p.name,
+            nickname: p.nickname || '',
+            avatar: p.avatar || '',
             playerIndex: p.playerIndex,
             ready: p.ready || false
           };
@@ -114,7 +116,7 @@ Page({
 
   onCreateRoom: function() {
     if (!wsClient) return;
-    wsClient.send({ type: 'createRoom', name: wx.getStorageSync('playerName') || '玩家' });
+    wsClient.send({ type: 'createRoom', name: wx.getStorageSync('playerName') || '玩家', nickname: wx.getStorageSync('playerNickname') || '', avatar: wx.getStorageSync('playerAvatar') || '' });
   },
 
   onJoinRoomIdInput: function(e) {
@@ -125,7 +127,7 @@ Page({
     var roomId = this.data.joinRoomId;
     if (!roomId) return;
     if (!wsClient) return;
-    wsClient.send({ type: 'joinRoom', roomId: roomId, name: wx.getStorageSync('playerName') || '玩家' });
+    wsClient.send({ type: 'joinRoom', roomId: roomId, name: wx.getStorageSync('playerName') || '玩家', nickname: wx.getStorageSync('playerNickname') || '', avatar: wx.getStorageSync('playerAvatar') || '' });
     this.setData({ joinRoomId: '' });
   },
 
@@ -133,7 +135,7 @@ Page({
     var room = e.currentTarget.dataset.room;
     if (!room || room.playerCount >= room.maxPlayers) return;
     if (!wsClient) return;
-    wsClient.send({ type: 'joinRoom', roomId: room.id, name: '我' });
+    wsClient.send({ type: 'joinRoom', roomId: room.id, name: wx.getStorageSync('playerName') || '玩家', nickname: wx.getStorageSync('playerNickname') || '', avatar: wx.getStorageSync('playerAvatar') || '' });
   },
 
   onToggleReady: function() {
@@ -172,11 +174,24 @@ Page({
     });
   },
 
+  onInviteFriends: function() {
+    // Show share popup
+    wx.showShareMenu({ withShareTicket: true });
+    wx.showToast({ title: '点击右上角"分享"按钮邀请好友', icon: 'none', duration: 3000 });
+  },
+
   onRules() {
     wx.showToast({ title: '规则开发中', icon: 'none' });
   },
 
   onAbout() {
     wx.showToast({ title: '升级扑克 v1.0 在线版', icon: 'none' });
+  },
+
+  onShareAppMessage: function() {
+    return {
+      title: '来玩升级扑克！四人在线对战',
+      path: '/pages/index/index?roomId=' + this.data.currentRoomId
+    };
   }
 });
