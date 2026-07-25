@@ -87,7 +87,7 @@ Page({
       var rooms = (msg.rooms || []).map(function(r) {
         return { id: r.id, playerCount: r.playerCount, maxPlayers: r.maxPlayers, gameState: r.gameState };
       });
-      this.setData({ roomList: rooms });
+      this.setData({ connected: true, roomList: rooms });
     }.bind(this));
 
 
