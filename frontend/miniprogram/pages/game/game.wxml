@@ -140,8 +140,8 @@
             <view class="suit-option diamond" bindtap="onBidThree" data-suit="diamond">♢</view>
           </view>
         </view>
-
-        <view class="played-cards" wx:elif="{{showPlayActions || !showBidActions}}">
+        <view class="played-cards" wx:if="{{!showBidActions}}">
+        <view class="played-cards" wx:if="{{!showBidActions}}">
           <view class="played-card top {{trickCards[2]?'show':''}}" wx:if="{{trickCards[2]}}">
             <text class="card-text {{trickCards[2].red?'red':''}}">{{trickCards[2].display}}</text>
           </view>
