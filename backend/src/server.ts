@@ -89,12 +89,37 @@ function joinRoom(roomId: string, msg: any, ws: WebSocket): Room | null {
   const room = rooms.get(roomId);
   if (!room) return null;
   if (room.players.length >= 4) {
-    sendToWs(ws, { type: 'error', message: '鎴块棿宸叉弧' });
+    sendToWs(ws, { type: 'error', message: '房间已满' });
     return null;
   }
-
+  // 防止同一个 WebSocket 连接重复加入房间
+  const existingPlayer = playerRooms.get(ws);
+  if (existingPlayer && existingPlayer.roomId === roomId) {
+    sendToWs(ws, { type: 'error', message: '你已在房间 ' + roomId + ' 中' });
+    console.log('[Server] Duplicate join attempt by ' + existingPlayer.name + ' in room ' + roomId);
+    return null;
+  }
+  // 如果这个 ws 之前在其他房间，先清理
+  if (existingPlayer) {
+    const oldRoom = rooms.get(existingPlayer.roomId);
+    if (oldRoom) {
+      oldRoom.players = oldRoom.players.filter(p => p.ws !== ws);
+      // 重新编号
+      oldRoom.players.forEach((p, i) => { p.playerIndex = i; });
+      broadcastRoom(oldRoom, {
+        type: 'roomUpdate',
+        room: getRoomInfo(oldRoom),
+        players: oldRoom.players.map(p => ({
+          name: p.name,
+          playerIndex: p.playerIndex,
+          ready: false,
+        })),
+      });
+      console.log('[Server] Removed player ' + existingPlayer.name + ' from old room ' + existingPlayer.roomId);
+    }
+  }
   const playerIndex = room.players.length;
-  const playerName = msg.name || ('鐜╁' + (playerIndex + 1));
+  const playerName = msg.name || ('玩家' + (playerIndex + 1));
   const player: PlayerSocket = {
     ws,
     name: playerName,
@@ -104,12 +129,9 @@ function joinRoom(roomId: string, msg: any, ws: WebSocket): Room | null {
     playerIndex,
     ready: false,
   };
-
   room.players.push(player);
   playerRooms.set(ws, player);
-
   console.log('[Server] ' + player.name + ' joined room ' + roomId + ' as player ' + (playerIndex + 1));
-
   broadcastRoom(room, {
     type: 'roomUpdate',
     room: getRoomInfo(room),
@@ -119,7 +141,6 @@ function joinRoom(roomId: string, msg: any, ws: WebSocket): Room | null {
       ready: p.ready,
     })),
   });
-
   return room;
 }
 

@@ -75,18 +75,30 @@ Page({
 
   _onPlayerReady: function(msg) {
     console.log("[Game] playerReady", msg);
-    var players = this.data.roomPlayers;
-    for (var i=0;i<players.length;i++){
-      if(players[i].playerIndex===msg.playerIndex) players[i].ready=msg.allReady?true:players[i].ready;
+    // Use the players array from backend directly instead of guessing
+    if (msg.players) {
+      this.setData({
+        roomPlayers: msg.players,
+        allReady: msg.players.every(function(p){return p.ready;}),
+        selfReady: msg.players[this.data.myIndex]?msg.players[this.data.myIndex].ready:false,
+        p1Ready: msg.players[1]?msg.players[1].ready:false,
+        p2Ready: msg.players[2]?msg.players[2].ready:false,
+        p3Ready: msg.players[3]?msg.players[3].ready:false
+      });
+    } else {
+      var players = this.data.roomPlayers;
+      for (var i=0;i<players.length;i++){
+        if(players[i].playerIndex===msg.playerIndex) players[i].ready=true;
+      }
+      this.setData({
+        roomPlayers: players,
+        allReady: players.every(function(p){return p.ready;}),
+        selfReady: players[this.data.myIndex]?players[this.data.myIndex].ready:false,
+        p1Ready: players[1]?players[1].ready:false,
+        p2Ready: players[2]?players[2].ready:false,
+        p3Ready: players[3]?players[3].ready:false
+      });
     }
-    this.setData({
-      roomPlayers: players,
-      allReady: players.every(function(p){return p.ready;}),
-      selfReady: players[this.data.myIndex]?players[this.data.myIndex].ready:false,
-      p1Ready: players[1]?players[1].ready:false,
-      p2Ready: players[2]?players[2].ready:false,
-      p3Ready: players[3]?players[3].ready:false
-    });
   },
 
   _onGameStart: function(msg) {

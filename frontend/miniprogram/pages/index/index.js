@@ -58,7 +58,8 @@ Page({
             ready: p.ready || false
           };
         });
-        var selfIdx = parseInt(wx.getStorageSync('myIndex')) || 0;
+        var storedName = wx.getStorageSync("playerName") || "";
+        var selfIdx = storedName ? players.findIndex(function(p){return p.name === storedName;}) : parseInt(wx.getStorageSync("myIndex")) || 0;
         wx.setStorageSync('currentRoomId', msg.room.id);
         wx.setStorageSync('roomPlayers', JSON.stringify(players));
         this.setData({
