@@ -70,16 +70,7 @@ function createRoom(hostName: string, nickname: string, avatar: string, ws: WebS
   rooms.set(roomId, room);
   playerRooms.set(ws, room.players[0]);
 
-  // 閫氱煡鍒氬垱寤烘埧闂寸殑瀹㈡埛绔?
-  broadcastRoom(room, {
-    type: 'roomUpdate',
-    room: getRoomInfo(room),
-    players: room.players.map(p => ({
-      name: p.name,
-      playerIndex: p.playerIndex,
-      ready: p.ready,
-    })),
-  });
+  broadcastRoom(room, { type: 'roomUpdate', room: getRoomInfo(room), players: getRoomInfo(room).players });
 
   console.log('[Server] Room ' + roomId + ' created by ' + room.players[0].name);
   return room;
@@ -105,16 +96,7 @@ function joinRoom(roomId: string, msg: any, ws: WebSocket): Room | null {
     if (oldRoom) {
       oldRoom.players = oldRoom.players.filter(p => p.ws !== ws);
       // 重新编号
-      oldRoom.players.forEach((p, i) => { p.playerIndex = i; });
-      broadcastRoom(oldRoom, {
-        type: 'roomUpdate',
-        room: getRoomInfo(oldRoom),
-        players: oldRoom.players.map(p => ({
-          name: p.name,
-          playerIndex: p.playerIndex,
-          ready: false,
-        })),
-      });
+      broadcastRoom(oldRoom, { type: 'roomUpdate', room: getRoomInfo(oldRoom), players: getRoomInfo(oldRoom).players });
       console.log('[Server] Removed player ' + existingPlayer.name + ' from old room ' + existingPlayer.roomId);
     }
   }
@@ -132,15 +114,7 @@ function joinRoom(roomId: string, msg: any, ws: WebSocket): Room | null {
   room.players.push(player);
   playerRooms.set(ws, player);
   console.log('[Server] ' + player.name + ' joined room ' + roomId + ' as player ' + (playerIndex + 1));
-  broadcastRoom(room, {
-    type: 'roomUpdate',
-    room: getRoomInfo(room),
-    players: room.players.map(p => ({
-      name: p.name,
-      playerIndex: p.playerIndex,
-      ready: p.ready,
-    })),
-  });
+  broadcastRoom(room, { type: 'roomUpdate', room: getRoomInfo(room), players: getRoomInfo(room).players });
   return room;
 }
 
@@ -163,15 +137,7 @@ function leaveRoom(ws: WebSocket): void {
     room.players.forEach((p, i) => {
       p.playerIndex = i;
     });
-    broadcastRoom(room, {
-      type: 'roomUpdate',
-      room: getRoomInfo(room),
-      players: room.players.map(p => ({
-        name: p.name,
-        playerIndex: p.playerIndex,
-        ready: false,
-      })),
-    });
+      broadcastRoom(room, { type: 'roomUpdate', room: getRoomInfo(room), players: getRoomInfo(room).players });
   }
 }
 
@@ -212,12 +178,7 @@ function handleReady(ws: WebSocket): void {
     playerIndex: player.playerIndex,
     playerName: player.name,
     allReady,
-    room: getRoomInfo(room),
-    players: room.players.map(p => ({
-      name: p.name,
-      playerIndex: p.playerIndex,
-      ready: p.ready,
-    })),
+    players: getRoomInfo(room).players,
   });
 
   // 鎵€鏈変汉閮藉噯澶囧ソ鍚庤嚜鍔ㄥ紑濮?
