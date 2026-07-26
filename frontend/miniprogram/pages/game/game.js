@@ -41,14 +41,22 @@ Page({
     var players = [];
     if (storedPlayers) { try { players = JSON.parse(storedPlayers); } catch(e){} }
     var storedName = wx.getStorageSync("playerName") || "";
-    var myIndex = storedName ? players.findIndex(function(p){return p.name === storedName;}) : parseInt(wx.getStorageSync("myIndex")) || 0;
+    // Fallback: if name matching fails, default to first player in room or index 0
+    var myIndex = 0;
+    if (storedName && players.length > 0) {
+      var foundIdx = players.findIndex(function(p){return p.name === storedName;});
+      if (foundIdx >= 0) myIndex = foundIdx;
+    } else {
+      myIndex = parseInt(wx.getStorageSync("myIndex")) || 0;
+    }
     this.setData({
       gameStarted: false,
       roomId: roomId,
       myIndex: myIndex,
-      roomPlayers: players
+      roomPlayers: players,
+      selfReady: players[myIndex] ? players[myIndex].ready : false,
+      allReady: players.length > 0 ? players.every(function(p){return p.ready;}) : false
     });
-
     wsClient.onMessage("roomUpdate", this._onRoomUpdate.bind(this));
     wsClient.onMessage("playerReady", this._onPlayerReady.bind(this));
     wsClient.onMessage("gameStart", this._onGameStart.bind(this));
