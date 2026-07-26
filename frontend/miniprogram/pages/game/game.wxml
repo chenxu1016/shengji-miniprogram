@@ -1,4 +1,4 @@
-﻿<view class="game-page">
+<view class="game-page">
   <!-- 顶部状态栏 -->
   <view class="status-bar">
     <view class="back-btn" bindtap="onBack">←</view>
@@ -15,8 +15,12 @@
       <!-- 北 - 上方玩家 -->
       <view class="player-seat seat-top" wx:if="{{roomPlayers[2]}}">
         <view class="seat-avatar {{roomPlayers[2].ready ? 'ready' : ''}}">
-          <image class="avatar-img" wx:if="{{roomPlayers[2].avatar}}" src="{{roomPlayers[2].avatar}}" mode="aspectFill"></image>
-          <text class="avatar-letter" wx:else>{{(roomPlayers[2].nickname || roomPlayers[2].name || '?').charAt(0).toUpperCase()}}</text>
+          <block wx:if="{{roomPlayers[2].avatar}}">
+            <image class="avatar-img" src="{{roomPlayers[2].avatar}}" mode="aspectFill"></image>
+          </block>
+          <block wx:else>
+            <text class="avatar-letter">{{(roomPlayers[2].nickname || roomPlayers[2].name || '?').charAt(0).toUpperCase()}}</text>
+          </block>
         </view>
         <view class="seat-name">{{roomPlayers[2].nickname || roomPlayers[2].name}}</view>
         <view class="seat-status {{roomPlayers[2].ready ? 'ready' : 'waiting'}}">{{roomPlayers[2].ready ? '✓ 已准备' : '等待中'}}</view>
@@ -26,8 +30,12 @@
       <!-- 西 - 左侧玩家 -->
       <view class="player-seat seat-left" wx:if="{{roomPlayers[3]}}">
         <view class="seat-avatar {{roomPlayers[3].ready ? 'ready' : ''}}">
-          <image class="avatar-img" wx:if="{{roomPlayers[3].avatar}}" src="{{roomPlayers[3].avatar}}" mode="aspectFill"></image>
-          <text class="avatar-letter" wx:else>{{(roomPlayers[3].nickname || roomPlayers[3].name || '?').charAt(0).toUpperCase()}}</text>
+          <block wx:if="{{roomPlayers[3].avatar}}">
+            <image class="avatar-img" src="{{roomPlayers[3].avatar}}" mode="aspectFill"></image>
+          </block>
+          <block wx:else>
+            <text class="avatar-letter">{{(roomPlayers[3].nickname || roomPlayers[3].name || '?').charAt(0).toUpperCase()}}</text>
+          </block>
         </view>
         <view class="seat-name">{{roomPlayers[3].nickname || roomPlayers[3].name}}</view>
         <view class="seat-status {{roomPlayers[3].ready ? 'ready' : 'waiting'}}">{{roomPlayers[3].ready ? '✓ 已准备' : '等待中'}}</view>
@@ -37,8 +45,12 @@
       <!-- 东 - 右侧玩家 -->
       <view class="player-seat seat-right" wx:if="{{roomPlayers[1]}}">
         <view class="seat-avatar {{roomPlayers[1].ready ? 'ready' : ''}}">
-          <image class="avatar-img" wx:if="{{roomPlayers[1].avatar}}" src="{{roomPlayers[1].avatar}}" mode="aspectFill"></image>
-          <text class="avatar-letter" wx:else>{{(roomPlayers[1].nickname || roomPlayers[1].name || '?').charAt(0).toUpperCase()}}</text>
+          <block wx:if="{{roomPlayers[1].avatar}}">
+            <image class="avatar-img" src="{{roomPlayers[1].avatar}}" mode="aspectFill"></image>
+          </block>
+          <block wx:else>
+            <text class="avatar-letter">{{(roomPlayers[1].nickname || roomPlayers[1].name || '?').charAt(0).toUpperCase()}}</text>
+          </block>
         </view>
         <view class="seat-name">{{roomPlayers[1].nickname || roomPlayers[1].name}}</view>
         <view class="seat-status {{roomPlayers[1].ready ? 'ready' : 'waiting'}}">{{roomPlayers[1].ready ? '✓ 已准备' : '等待中'}}</view>
@@ -48,8 +60,12 @@
       <!-- 南 - 自己 (底部) -->
       <view class="player-seat seat-bottom self-seat">
         <view class="seat-avatar self-avatar ready">
-          <image class="avatar-img" wx:if="{{roomPlayers[myIndex] && roomPlayers[myIndex].avatar}}" src="{{roomPlayers[myIndex].avatar}}" mode="aspectFill"></image>
-          <text class="avatar-letter" wx:else>{{(roomPlayers[myIndex] ? (roomPlayers[myIndex].nickname || roomPlayers[myIndex].name) : '我').charAt(0).toUpperCase()}}</text>
+          <block wx:if="{{roomPlayers[myIndex] && roomPlayers[myIndex].avatar}}">
+            <image class="avatar-img" src="{{roomPlayers[myIndex].avatar}}" mode="aspectFill"></image>
+          </block>
+          <block wx:else>
+            <text class="avatar-letter">{{(roomPlayers[myIndex] ? (roomPlayers[myIndex].nickname || roomPlayers[myIndex].name) : '我').charAt(0).toUpperCase()}}</text>
+          </block>
         </view>
         <view class="seat-name self-name">{{roomPlayers[myIndex] ? (roomPlayers[myIndex].nickname || roomPlayers[myIndex].name) : '我'}}</view>
         <view class="seat-status ready">✓ 已准备</view>
