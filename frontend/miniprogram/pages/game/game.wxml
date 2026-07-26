@@ -9,11 +9,11 @@
   <!-- ========== 等待大厅 ========== -->
   <view class="lobby-stage" wx:if="{{!gameStarted}}">
     <view class="table-title">升级 · 四人桌</view>
-
-    <!-- 桌子中央区域 -->
+    
+    <!-- 桌子中央区域 - 四方位布局 -->
     <view class="table-center">
       <!-- 北 - 上方玩家 -->
-      <view class="player-seat seat-top {{allReady ? 'ready-seat' : ''}}" wx:if="{{roomPlayers[2]}}">
+      <view class="player-seat seat-top" wx:if="{{roomPlayers[2]}}">
         <view class="seat-avatar {{roomPlayers[2].ready ? 'ready' : ''}}">
           <image class="avatar-img" wx:if="{{roomPlayers[2].avatar}}" src="{{roomPlayers[2].avatar}}" mode="aspectFill"></image>
           <text class="avatar-letter" wx:else>{{(roomPlayers[2].nickname || roomPlayers[2].name || '?').charAt(0).toUpperCase()}}</text>
@@ -22,9 +22,9 @@
         <view class="seat-status {{roomPlayers[2].ready ? 'ready' : 'waiting'}}">{{roomPlayers[2].ready ? '✓ 已准备' : '等待中'}}</view>
         <view class="seat-cards">{{p2Count}}张</view>
       </view>
-
+      
       <!-- 西 - 左侧玩家 -->
-      <view class="player-seat seat-left {{allReady ? 'ready-seat' : ''}}" wx:if="{{roomPlayers[3]}}">
+      <view class="player-seat seat-left" wx:if="{{roomPlayers[3]}}">
         <view class="seat-avatar {{roomPlayers[3].ready ? 'ready' : ''}}">
           <image class="avatar-img" wx:if="{{roomPlayers[3].avatar}}" src="{{roomPlayers[3].avatar}}" mode="aspectFill"></image>
           <text class="avatar-letter" wx:else>{{(roomPlayers[3].nickname || roomPlayers[3].name || '?').charAt(0).toUpperCase()}}</text>
@@ -33,9 +33,9 @@
         <view class="seat-status {{roomPlayers[3].ready ? 'ready' : 'waiting'}}">{{roomPlayers[3].ready ? '✓ 已准备' : '等待中'}}</view>
         <view class="seat-cards">{{p3Count}}张</view>
       </view>
-
+      
       <!-- 东 - 右侧玩家 -->
-      <view class="player-seat seat-right {{allReady ? 'ready-seat' : ''}}" wx:if="{{roomPlayers[1]}}">
+      <view class="player-seat seat-right" wx:if="{{roomPlayers[1]}}">
         <view class="seat-avatar {{roomPlayers[1].ready ? 'ready' : ''}}">
           <image class="avatar-img" wx:if="{{roomPlayers[1].avatar}}" src="{{roomPlayers[1].avatar}}" mode="aspectFill"></image>
           <text class="avatar-letter" wx:else>{{(roomPlayers[1].nickname || roomPlayers[1].name || '?').charAt(0).toUpperCase()}}</text>
@@ -44,7 +44,7 @@
         <view class="seat-status {{roomPlayers[1].ready ? 'ready' : 'waiting'}}">{{roomPlayers[1].ready ? '✓ 已准备' : '等待中'}}</view>
         <view class="seat-cards">{{p1Count}}张</view>
       </view>
-
+      
       <!-- 南 - 自己 (底部) -->
       <view class="player-seat seat-bottom self-seat">
         <view class="seat-avatar self-avatar ready">
@@ -55,7 +55,7 @@
         <view class="seat-status ready">✓ 已准备</view>
       </view>
     </view>
-
+    
     <!-- 中间按钮区 -->
     <view class="center-buttons">
       <button class="action-btn ready-btn {{selfReady ? 'active' : ''}}" bindtap="onSelfReady">
@@ -100,7 +100,7 @@
           <view class="back-card" wx:for="{{[1,2,3]}}" wx:key="index"></view>
         </view>
       </view>
-
+      
       <!-- 左方(西-玩家4) -->
       <view class="opponent opponent-left {{currentPlayerIndex===3?'active':''}}">
         <view class="player-card">
@@ -112,7 +112,7 @@
           <view class="back-card" wx:for="{{[1,2,3]}}" wx:key="index"></view>
         </view>
       </view>
-
+      
       <!-- 右方(东-玩家2) -->
       <view class="opponent opponent-right {{currentPlayerIndex===1?'active':''}}">
         <view class="player-card">
@@ -129,7 +129,7 @@
     <!-- 叫分/出牌区 (桌子中央) -->
     <view class="trick-area">
       <view class="trick-center">
-        <!-- 叫分阶段：显示主牌选择 -->
+        <!-- 叫分阶段 -->
         <view class="bid-area" wx:if="{{showBidActions}}">
           <text class="bid-status">亮主阶段</text>
           <view class="suit-options">
@@ -140,7 +140,8 @@
             <view class="suit-option diamond" bindtap="onBidThree" data-suit="diamond">♢</view>
           </view>
         </view>
-        <view class="played-cards" wx:if="{{!showBidActions}}">
+        
+        <!-- 出牌阶段 - 用 wx:if 替代 wx:elif -->
         <view class="played-cards" wx:if="{{!showBidActions}}">
           <view class="played-card top {{trickCards[2]?'show':''}}" wx:if="{{trickCards[2]}}">
             <text class="card-text {{trickCards[2].red?'red':''}}">{{trickCards[2].display}}</text>
@@ -164,7 +165,7 @@
       <scroll-view scroll-x class="hand-scroll" enable-flex>
         <view class="hand-cards">
           <block wx:for="{{myHand}}" wx:key="index">
-            <view class="card {{item.selected?'selected':''}} {{item.playable?'playable':'unplayable'}}"
+            <view class="card {{item.selected?'selected':''}} {{item.playable?'playable':'unplayable'}}" 
                   bindtap="onCardTap" data-index="{{index}}">
               <text class="card-text {{item.red?'red':''}}">{{item.display}}</text>
             </view>
@@ -178,7 +179,7 @@
     <view class="action-bar">
       <button class="bar-btn pass-btn" bindtap="onBidPass" wx:if="{{showBidActions}}">过</button>
       <button class="bar-btn bid-btn" bindtap="onBidZero" wx:if="{{showBidActions}}">亮主</button>
-      <button class="bar-btn play-btn {{selectedCards.length>0?'enabled':'disabled'}}"
+      <button class="bar-btn play-btn {{selectedCards.length>0?'enabled':'disabled'}}" 
               bindtap="onPlayConfirm" wx:if="{{showPlayActions}}">
         出牌({{selectedCards.length}})
       </button>
