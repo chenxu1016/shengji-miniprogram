@@ -227,10 +227,10 @@ Page({
   onSelfReady: function() {
     if (!wsClient) return;
     wsClient.send({type:"ready"});
+  },
   onDealCards: function() {
     if (!wsClient) return;
     wsClient.send({type:"dealCards"});
-  },
   },
 
   onBidPass: function() {
