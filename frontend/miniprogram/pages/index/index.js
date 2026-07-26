@@ -142,15 +142,9 @@ Page({
   onToggleReady: function() {
     if (!wsClient || !this.data.inRoom) return;
     wsClient.send({ type: 'ready' });
-    var ready = !this.data.selfReady;
-    var players = this.data.roomPlayers.map(function(p, i) {
-      if (i === this.data.myIndex) p.ready = ready;
-      return p;
-    }.bind(this));
-    this.setData({ selfReady: ready, roomPlayers: players, allReady: players.every(function(p){return p.ready;}) });
-    wx.setStorageSync('roomPlayers', JSON.stringify(players));
+    // Navigate to game room page after ready
+    wx.navigateTo({ url: '/pages/game/game?roomId=' + this.data.currentRoomId });
   },
-
   onStartGame: function() {
     if (!wsClient) return;
     wsClient.send({ type: 'startGame' });

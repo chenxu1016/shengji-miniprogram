@@ -37,11 +37,11 @@ Page({
     var app = require("../../utils/wsClient");
     wsClient = app.createWsClient();
     var roomId = options.roomId || wx.getStorageSync("currentRoomId") || "";
-    var myIndex = parseInt(wx.getStorageSync("myIndex")) || 0;
     var storedPlayers = wx.getStorageSync("roomPlayers");
     var players = [];
     if (storedPlayers) { try { players = JSON.parse(storedPlayers); } catch(e){} }
-
+    var storedName = wx.getStorageSync("playerName") || "";
+    var myIndex = storedName ? players.findIndex(function(p){return p.name === storedName;}) : parseInt(wx.getStorageSync("myIndex")) || 0;
     this.setData({
       gameStarted: false,
       roomId: roomId,
