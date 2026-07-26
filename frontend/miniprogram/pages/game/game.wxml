@@ -1,7 +1,7 @@
-<view class="game-page">
+﻿<view class="game-page">
   <!-- 顶部状态栏 -->
   <view class="status-bar">
-    <view class="back-btn">←</view>
+    <view class="back-btn" bindtap="onBack">←</view>
     <view class="help-btn">?</view>
     <view class="piggy-icon">🐷</view>
   </view>
@@ -9,35 +9,57 @@
   <!-- ========== 等待大厅 ========== -->
   <view class="lobby-stage" wx:if="{{!gameStarted}}">
     <view class="table-title">升级 · 四人桌</view>
-    
-    <!-- 左侧对手占位 -->
-    <view class="opponent-slot left-slot">
-      <view class="avatar-placeholder">
-        <text class="question-mark">?</text>
+
+    <!-- 桌子中央区域 -->
+    <view class="table-center">
+      <!-- 北 - 上方玩家 -->
+      <view class="player-seat seat-top {{allReady ? 'ready-seat' : ''}}" wx:if="{{roomPlayers[2]}}">
+        <view class="seat-avatar {{roomPlayers[2].ready ? 'ready' : ''}}">
+          <image class="avatar-img" wx:if="{{roomPlayers[2].avatar}}" src="{{roomPlayers[2].avatar}}" mode="aspectFill"></image>
+          <text class="avatar-letter" wx:else>{{(roomPlayers[2].nickname || roomPlayers[2].name || '?').charAt(0).toUpperCase()}}</text>
+        </view>
+        <view class="seat-name">{{roomPlayers[2].nickname || roomPlayers[2].name}}</view>
+        <view class="seat-status {{roomPlayers[2].ready ? 'ready' : 'waiting'}}">{{roomPlayers[2].ready ? '✓ 已准备' : '等待中'}}</view>
+        <view class="seat-cards">{{p2Count}}张</view>
       </view>
-      <text class="slot-label">玩家4</text>
-    </view>
-    
-    <!-- 右侧对手占位 -->
-    <view class="opponent-slot right-slot">
-      <view class="avatar-placeholder">
-        <text class="question-mark">?</text>
+
+      <!-- 西 - 左侧玩家 -->
+      <view class="player-seat seat-left {{allReady ? 'ready-seat' : ''}}" wx:if="{{roomPlayers[3]}}">
+        <view class="seat-avatar {{roomPlayers[3].ready ? 'ready' : ''}}">
+          <image class="avatar-img" wx:if="{{roomPlayers[3].avatar}}" src="{{roomPlayers[3].avatar}}" mode="aspectFill"></image>
+          <text class="avatar-letter" wx:else>{{(roomPlayers[3].nickname || roomPlayers[3].name || '?').charAt(0).toUpperCase()}}</text>
+        </view>
+        <view class="seat-name">{{roomPlayers[3].nickname || roomPlayers[3].name}}</view>
+        <view class="seat-status {{roomPlayers[3].ready ? 'ready' : 'waiting'}}">{{roomPlayers[3].ready ? '✓ 已准备' : '等待中'}}</view>
+        <view class="seat-cards">{{p3Count}}张</view>
       </view>
-      <text class="slot-label">玩家2</text>
-    </view>
-    
-    <!-- 上方对手占位 -->
-    <view class="opponent-slot top-slot">
-      <view class="avatar-placeholder">
-        <text class="question-mark">?</text>
+
+      <!-- 东 - 右侧玩家 -->
+      <view class="player-seat seat-right {{allReady ? 'ready-seat' : ''}}" wx:if="{{roomPlayers[1]}}">
+        <view class="seat-avatar {{roomPlayers[1].ready ? 'ready' : ''}}">
+          <image class="avatar-img" wx:if="{{roomPlayers[1].avatar}}" src="{{roomPlayers[1].avatar}}" mode="aspectFill"></image>
+          <text class="avatar-letter" wx:else>{{(roomPlayers[1].nickname || roomPlayers[1].name || '?').charAt(0).toUpperCase()}}</text>
+        </view>
+        <view class="seat-name">{{roomPlayers[1].nickname || roomPlayers[1].name}}</view>
+        <view class="seat-status {{roomPlayers[1].ready ? 'ready' : 'waiting'}}">{{roomPlayers[1].ready ? '✓ 已准备' : '等待中'}}</view>
+        <view class="seat-cards">{{p1Count}}张</view>
       </view>
-      <text class="slot-label">玩家3</text>
+
+      <!-- 南 - 自己 (底部) -->
+      <view class="player-seat seat-bottom self-seat">
+        <view class="seat-avatar self-avatar ready">
+          <image class="avatar-img" wx:if="{{roomPlayers[myIndex] && roomPlayers[myIndex].avatar}}" src="{{roomPlayers[myIndex].avatar}}" mode="aspectFill"></image>
+          <text class="avatar-letter" wx:else>{{(roomPlayers[myIndex] ? (roomPlayers[myIndex].nickname || roomPlayers[myIndex].name) : '我').charAt(0).toUpperCase()}}</text>
+        </view>
+        <view class="seat-name self-name">{{roomPlayers[myIndex] ? (roomPlayers[myIndex].nickname || roomPlayers[myIndex].name) : '我'}}</view>
+        <view class="seat-status ready">✓ 已准备</view>
+      </view>
     </view>
-    
+
     <!-- 中间按钮区 -->
     <view class="center-buttons">
-      <button class="action-btn ready-btn" bindtap="onSelfReady">
-        <text class="btn-icon">✓</text>
+      <button class="action-btn ready-btn {{selfReady ? 'active' : ''}}" bindtap="onSelfReady">
+        <text class="btn-icon">{{selfReady ? '✓' : '○'}}</text>
         <text>{{selfReady ? '已准备' : '准备'}}</text>
       </button>
       <button class="action-btn start-btn {{allReady?'':'disabled'}}" bindtap="onDealCards" wx:if="{{allReady}}">
@@ -68,34 +90,34 @@
     <!-- 对手区域 -->
     <view class="opponents-area">
       <!-- 上方(北-玩家3) -->
-      <view class="opponent opponent-top">
-        <view class="player-card {{currentPlayerIndex===2?'active':''}}">
-          <view class="mini-avatar">3</view>
-          <text class="player-name">玩家3</text>
+      <view class="opponent opponent-top {{currentPlayerIndex===2?'active':''}}">
+        <view class="player-card">
+          <view class="mini-avatar">{{roomPlayers[2] ? (roomPlayers[2].nickname || roomPlayers[2].name).charAt(0) : '3'}}</view>
+          <text class="player-name">{{roomPlayers[2] ? (roomPlayers[2].nickname || roomPlayers[2].name) : '玩家3'}}</text>
           <text class="card-count">{{p2Count}}张</text>
         </view>
         <view class="hand-back-stack">
           <view class="back-card" wx:for="{{[1,2,3]}}" wx:key="index"></view>
         </view>
       </view>
-      
+
       <!-- 左方(西-玩家4) -->
-      <view class="opponent opponent-left">
-        <view class="player-card {{currentPlayerIndex===3?'active':''}}">
-          <view class="mini-avatar">4</view>
-          <text class="player-name">玩家4</text>
+      <view class="opponent opponent-left {{currentPlayerIndex===3?'active':''}}">
+        <view class="player-card">
+          <view class="mini-avatar">{{roomPlayers[3] ? (roomPlayers[3].nickname || roomPlayers[3].name).charAt(0) : '4'}}</view>
+          <text class="player-name">{{roomPlayers[3] ? (roomPlayers[3].nickname || roomPlayers[3].name) : '玩家4'}}</text>
           <text class="card-count">{{p3Count}}张</text>
         </view>
         <view class="hand-back-stack">
           <view class="back-card" wx:for="{{[1,2,3]}}" wx:key="index"></view>
         </view>
       </view>
-      
+
       <!-- 右方(东-玩家2) -->
-      <view class="opponent opponent-right">
-        <view class="player-card {{currentPlayerIndex===1?'active':''}}">
-          <view class="mini-avatar">2</view>
-          <text class="player-name">玩家2</text>
+      <view class="opponent opponent-right {{currentPlayerIndex===1?'active':''}}">
+        <view class="player-card">
+          <view class="mini-avatar">{{roomPlayers[1] ? (roomPlayers[1].nickname || roomPlayers[1].name).charAt(0) : '2'}}</view>
+          <text class="player-name">{{roomPlayers[1] ? (roomPlayers[1].nickname || roomPlayers[1].name) : '玩家2'}}</text>
           <text class="card-count">{{p1Count}}张</text>
         </view>
         <view class="hand-back-stack">
@@ -118,7 +140,7 @@
             <view class="suit-option diamond" bindtap="onBidThree" data-suit="diamond">♢</view>
           </view>
         </view>
-        
+
         <view class="played-cards" wx:elif="{{showPlayActions || !showBidActions}}">
           <view class="played-card top {{trickCards[2]?'show':''}}" wx:if="{{trickCards[2]}}">
             <text class="card-text {{trickCards[2].red?'red':''}}">{{trickCards[2].display}}</text>
@@ -142,7 +164,7 @@
       <scroll-view scroll-x class="hand-scroll" enable-flex>
         <view class="hand-cards">
           <block wx:for="{{myHand}}" wx:key="index">
-            <view class="card {{item.selected?'selected':''}} {{item.playable?'playable':'unplayable'}}" 
+            <view class="card {{item.selected?'selected':''}} {{item.playable?'playable':'unplayable'}}"
                   bindtap="onCardTap" data-index="{{index}}">
               <text class="card-text {{item.red?'red':''}}">{{item.display}}</text>
             </view>
@@ -156,7 +178,7 @@
     <view class="action-bar">
       <button class="bar-btn pass-btn" bindtap="onBidPass" wx:if="{{showBidActions}}">过</button>
       <button class="bar-btn bid-btn" bindtap="onBidZero" wx:if="{{showBidActions}}">亮主</button>
-      <button class="bar-btn play-btn {{selectedCards.length>0?'enabled':'disabled'}}" 
+      <button class="bar-btn play-btn {{selectedCards.length>0?'enabled':'disabled'}}"
               bindtap="onPlayConfirm" wx:if="{{showPlayActions}}">
         出牌({{selectedCards.length}})
       </button>
@@ -167,8 +189,8 @@
     <!-- 底部玩家信息栏 -->
     <view class="bottom-bar">
       <view class="my-info">
-        <view class="mini-avatar self">我</view>
-        <text class="my-name">你</text>
+        <view class="mini-avatar self">{{roomPlayers[myIndex] ? (roomPlayers[myIndex].nickname || roomPlayers[myIndex].name || '我').charAt(0) : '我'}}</view>
+        <text class="my-name">{{roomPlayers[myIndex] ? (roomPlayers[myIndex].nickname || roomPlayers[myIndex].name) : '我'}}</text>
       </view>
       <view class="game-info">
         <text class="info-item">主牌: {{trumpText}}</text>
