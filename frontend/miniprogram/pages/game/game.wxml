@@ -5,7 +5,13 @@
     <view class="piggy-icon">🐷</view>
   </view>
 
-  <view class="lobby-stage" wx:if="{{!gameStarted}}">
+  <!-- 断线重连遮罩 -->
+  <view class="lock-overlay" wx:if="{{showReconnecting}}">
+    <view class="lock-spinner"></view>
+    <text>{{reconnectText}}</text>
+  </view>
+
+  <view class="lobby-stage" wx:if="{{!gameStarted && !showReconnecting}}">
     <view class="table-title">升级 · 四人桌</view>
     
     <view class="table-center">

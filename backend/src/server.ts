@@ -9,13 +9,14 @@ import { Card } from './models/card';
 // ============================================
 
 interface PlayerSocket {
-  ws: WebSocket;
+  ws: WebSocket | null;
   name: string;
   nickname: string;
   avatar: string;
   roomId: string;
   playerIndex: number; // 0-3
   ready: boolean;
+  disconnectedAt?: number; // 断线时间戳，undefined=在线
 }
 
 interface Room {
@@ -38,6 +39,9 @@ const rooms = new Map<string, Room>();
 const playerRooms = new Map<WebSocket, PlayerSocket>();
 
 let nextRoomId = 1;
+
+// 离线玩家保留 5 分钟，之后才真正清出房间
+const DISCONNECT_GRACE_MS = 5 * 60 * 1000;
 
 function generateRoomId(): string {
   return String(nextRoomId++).padStart(4, '0');
@@ -89,10 +93,7 @@ function createRoom(hostName: string, nickname: string, avatar: string, ws: WebS
 function joinRoom(roomId: string, msg: any, ws: WebSocket): Room | null {
   const room = rooms.get(roomId);
   if (!room) return null;
-  if (room.players.length >= 4) {
-    sendToWs(ws, { type: 'error', message: '房间已满' });
-    return null;
-  }
+
   // 防止同一个 WebSocket 连接重复加入房间
   const existingPlayer = playerRooms.get(ws);
   if (existingPlayer && existingPlayer.roomId === roomId) {
@@ -100,18 +101,50 @@ function joinRoom(roomId: string, msg: any, ws: WebSocket): Room | null {
     console.log('[Server] Duplicate join attempt by ' + existingPlayer.name + ' in room ' + roomId);
     return null;
   }
+
+  // 重要：如果是同一玩家断线重连（同房间 + 同名），恢复其原座位和准备状态
+  // 不需要新占一个坑，保留他之前的 playerIndex 和 ready
+  const playerName = msg.name || ('玩家' + (room.players.length + 1));
+  const rejoinMatch = room.players.findIndex(p =>
+    p.name === playerName && p.roomId === roomId && p.disconnectedAt !== undefined
+  );
+  if (rejoinMatch >= 0) {
+    const old = room.players[rejoinMatch];
+    console.log('[Server] ' + playerName + ' 重连恢复房间 ' + roomId + ' 座位 ' + (old.playerIndex + 1) + ' (ready=' + old.ready + ')');
+    // 替换 socket，保留座位和 ready 状态
+    if (old.ws && old.ws !== ws) {
+      try { old.ws.close(); } catch (e) {}
+    }
+    old.ws = ws;
+    old.disconnectedAt = undefined;
+    playerRooms.set(ws, old);
+    sendToWs(ws, { type: 'joined', roomId, playerIndex: old.playerIndex });
+    broadcastRoom(room, { type: 'roomUpdate', room: getRoomInfo(room), players: getRoomInfo(room).players });
+    // 如果对局已经在进行，把当前 session 也推给重连者，让其恢复手牌/状态
+    if (room.session) {
+      sendToWs(ws, { type: 'gameReconnect', session: serializeSession(room.session) });
+    }
+    return room;
+  }
+
   // 如果这个 ws 之前在其他房间，先清理
   if (existingPlayer) {
     const oldRoom = rooms.get(existingPlayer.roomId);
     if (oldRoom) {
-      oldRoom.players = oldRoom.players.filter(p => p.ws !== ws);
+      oldRoom.players = oldRoom.players.filter(p => p.ws !== ws && p !== existingPlayer);
       // 重新编号
+      oldRoom.players.forEach((p, i) => { p.playerIndex = i; });
       broadcastRoom(oldRoom, { type: 'roomUpdate', room: getRoomInfo(oldRoom), players: getRoomInfo(oldRoom).players });
       console.log('[Server] Removed player ' + existingPlayer.name + ' from old room ' + existingPlayer.roomId);
     }
   }
+
+  if (room.players.length >= 4) {
+    sendToWs(ws, { type: 'error', message: '房间已满' });
+    return null;
+  }
+
   const playerIndex = room.players.length;
-  const playerName = msg.name || ('玩家' + (playerIndex + 1));
   const player: PlayerSocket = {
     ws,
     name: playerName,
@@ -135,23 +168,52 @@ function leaveRoom(ws: WebSocket): void {
   if (!player) return;
 
   const room = rooms.get(player.roomId);
-  if (!room) return;
+  if (!room) {
+    playerRooms.delete(ws);
+    return;
+  }
 
-  room.players = room.players.filter(p => p.ws !== ws);
+  // 关键修复：断线时只标记 disconnectedAt，不立即从房间移除
+  // 这样玩家重新连接（同名同房间）能恢复原座位和准备状态
+  player.disconnectedAt = Date.now();
+  player.ws = null;
   playerRooms.delete(ws);
 
-  console.log('[Server] ' + player.name + ' left room ' + room.id);
+  console.log('[Server] ' + player.name + ' disconnected from room ' + room.id + ' (seat ' + (player.playerIndex + 1) + ' 保留 ' + Math.round(DISCONNECT_GRACE_MS / 1000) + ' 秒)');
 
-  if (room.players.length === 0) {
-    rooms.delete(room.id);
-    console.log('[Server] Room ' + room.id + ' deleted');
-  } else {
-    room.players.forEach((p, i) => {
-      p.playerIndex = i;
-      // 重新编号后单发通知每个玩家自己的新座位号
-      sendToWs(p.ws, { type: 'joined', roomId: room.id, playerIndex: i });
+  // 广播最新的房间状态（其他玩家能看到该玩家"离线"标记）
+  broadcastRoom(room, { type: 'roomUpdate', room: getRoomInfo(room), players: getRoomInfo(room).players });
+  broadcastRoom(room, { type: 'playerOffline', playerIndex: player.playerIndex, playerName: player.name });
+}
+
+// 定期清理：超过宽限期的离线玩家才真正从房间移除
+function cleanupDisconnectedPlayers() {
+  const now = Date.now();
+  for (const [roomId, room] of rooms.entries()) {
+    const before = room.players.length;
+    // 保留在线的 + 未到期的离线玩家
+    room.players = room.players.filter(p => {
+      if (p.disconnectedAt === undefined) return true;
+      if (now - p.disconnectedAt < DISCONNECT_GRACE_MS) return true;
+      console.log('[Server] Cleaning up expired disconnected player ' + p.name + ' from room ' + roomId);
+      return false;
     });
-      broadcastRoom(room, { type: 'roomUpdate', room: getRoomInfo(room), players: getRoomInfo(room).players });
+    // 如果有玩家被清掉，重新编号
+    if (room.players.length !== before) {
+      room.players.forEach((p, i) => { p.playerIndex = i; });
+      if (room.players.length === 0) {
+        rooms.delete(roomId);
+        console.log('[Server] Room ' + roomId + ' deleted (empty after cleanup)');
+      } else {
+        // 通知剩余玩家
+        room.players.forEach(p => {
+          if (p.ws && p.ws.readyState === WebSocket.OPEN) {
+            sendToWs(p.ws, { type: 'joined', roomId: room.id, playerIndex: p.playerIndex });
+          }
+        });
+        broadcastRoom(room, { type: 'roomUpdate', room: getRoomInfo(room), players: getRoomInfo(room).players });
+      }
+    }
   }
 }
 
@@ -182,10 +244,17 @@ function handleReady(ws: WebSocket): void {
   const room = rooms.get(player.roomId);
   if (!room) return;
 
+  // 只计算在线玩家的 ready 状态（离线的 ready 不算）
+  const onlinePlayers = room.players.filter(p => p.disconnectedAt === undefined);
+  if (onlinePlayers.length !== room.players.length) {
+    sendToWs(ws, { type: 'error', message: '有玩家离线，无法开始游戏' });
+    return;
+  }
+
   // 鍒囨崲鍑嗗鐘舵€?
   room.players[player.playerIndex].ready = !room.players[player.playerIndex].ready;
 
-  const allReady = room.players.every(p => p.ready);
+  const allReady = onlinePlayers.every(p => p.ready);
 
   broadcastRoom(room, {
     type: 'playerReady',
@@ -196,7 +265,7 @@ function handleReady(ws: WebSocket): void {
   });
 
   // 鎵€鏈変汉閮藉噯澶囧ソ鍚庤嚜鍔ㄥ紑濮?
-  if (allReady && room.players.length === 4) {
+  if (allReady && onlinePlayers.length === 4) {
     console.log('[Server] All players ready in room ' + room.id + ', starting game...');
     startGame(room);
   }
@@ -438,8 +507,8 @@ function mapSuitString(suit?: string): any {
 // 骞挎挱涓庡彂閫?
 // ============================================
 
-function sendToWs(ws: WebSocket, data: any): void {
-  if (ws.readyState === WebSocket.OPEN) {
+function sendToWs(ws: WebSocket | null, data: any): void {
+  if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(data));
   }
 }
@@ -447,7 +516,7 @@ function sendToWs(ws: WebSocket, data: any): void {
 function broadcastRoom(room: Room, data: any): void {
   const serialized = JSON.stringify(data);
   for (const player of room.players) {
-    if (player.ws.readyState === WebSocket.OPEN) {
+    if (player.ws && player.ws.readyState === WebSocket.OPEN) {
       player.ws.send(serialized);
     }
   }
@@ -500,6 +569,7 @@ function getRoomInfo(room: Room): any {
       avatar: p.avatar,
       playerIndex: p.playerIndex,
       ready: p.ready,
+      online: p.disconnectedAt === undefined,
     })),
   };
 }
@@ -545,6 +615,9 @@ wss.on('connection', (ws: WebSocket) => {
     leaveRoom(ws);
   });
 });
+
+// 定期清理超过宽限期的离线玩家（每 30 秒检查一次）
+setInterval(cleanupDisconnectedPlayers, 30 * 1000).unref();
 
 // 浼橀泤閫€鍑?
 process.on('SIGINT', () => {

@@ -39,23 +39,26 @@ Page({
     selectedCards: [],
     roomPlayers: [],
     myIndex: 0,
-    roomId: ""
+    roomId: "",
+    showReconnecting: false,
+    reconnectText: "重连中..."
   },
 
   onLoad: function(options) {
     var app = require("../../utils/wsClient");
     wsClient = app.createWsClient();
+    var self = this;  // 顶层 self，供异步回调使用
     var roomId = options.roomId || wx.getStorageSync("currentRoomId") || "";
     var storedPlayers = wx.getStorageSync("roomPlayers");
     var players = [];
     if (storedPlayers) { try { players = JSON.parse(storedPlayers); } catch(e){} }
-    
+
     // Add initial property to each player for display
     players = players.map(function(p) {
       var initial = getInitial(p.name || p.nickname || '?');
       return {...p, initial: initial};
     });
-    
+
     // 优先使用后端 joined 消息下发的权威座位号（index 页已存入 storage）
     var myIndex = 0;
     var storedIdx = wx.getStorageSync("myIndex");
@@ -73,7 +76,7 @@ Page({
     if (players.length > 0) {
       myIndex = Math.min(Math.max(myIndex, 0), players.length - 1);
     }
-    
+
     this.setData({
       gameStarted: false,
       roomId: roomId,
@@ -83,7 +86,44 @@ Page({
       selfReady: players[myIndex] ? players[myIndex].ready : false,
       allReady: players.length > 0 ? players.every(function(p){return p.ready;}) : false
     });
-    
+
+    // 持久化身份信息，供 wsClient 断线重连时恢复
+    if (wsClient && wsClient.saveIdentity) {
+      wsClient.saveIdentity({
+        name: wx.getStorageSync("playerName") || "",
+        nickname: wx.getStorageSync("playerNickname") || "",
+        avatar: wx.getStorageSync("playerAvatar") || "",
+        roomId: roomId,
+        myIndex: myIndex
+      });
+    }
+
+    // 注册断线/重连回调
+    if (wsClient.onDisconnect) {
+      wsClient.onDisconnect(function() {
+        self.setData({ showReconnecting: true, reconnectText: "网络断开，正在重连..." });
+      });
+    }
+    if (wsClient.onReconnecting) {
+      wsClient.onReconnecting(function(attempt, delay) {
+        self.setData({ showReconnecting: true, reconnectText: "重连中... (第 " + (attempt+1) + " 次)" });
+      });
+    }
+    if (wsClient.onConnect) {
+      wsClient.onConnect(function() {
+        // 重连后由 wsClient 自动 joinRoom；本页只负责关掉重连遮罩
+        if (self.data.showReconnecting) {
+          setTimeout(function() {
+            self.setData({ showReconnecting: false });
+            // 重新触发一次 refreshUI 同步最新对局状态
+            if (self.session) self.refreshUI();
+          }, 600);
+        }
+      });
+    }
+
+    self = this;
+
     wsClient.onMessage("roomUpdate", this._onRoomUpdate.bind(this));
     wsClient.onMessage("playerReady", this._onPlayerReady.bind(this));
     wsClient.onMessage("gameStart", this._onGameStart.bind(this));
@@ -91,6 +131,8 @@ Page({
     wsClient.onMessage("playResult", this._onPlayResult.bind(this));
     wsClient.onMessage("reverseResult", this._onReverseResult.bind(this));
     wsClient.onMessage("roundEnd", this._onRoundEnd.bind(this));
+    wsClient.onMessage("playerOffline", this._onPlayerOffline.bind(this));
+    wsClient.onMessage("gameReconnect", this._onGameReconnect.bind(this));
     wsClient.onMessage("error", this._onError.bind(this));
 
     // 关键修复：gameStart 消息在本页 onLoad 之前就已到达（index 页收到后才跳转过来），
@@ -222,6 +264,34 @@ Page({
   _onError: function(msg) {
     console.error("[Game] error", msg);
     wx.showToast({title: msg.message||"错误", icon:"none"});
+  },
+
+  _onPlayerOffline: function(msg) {
+    console.log("[Game] playerOffline", msg);
+    // 标记该玩家为离线，状态上让其"已准备"的灰掉
+    var players = this.data.roomPlayers;
+    var idx = msg.playerIndex;
+    if (idx >= 0 && idx < players.length) {
+      players[idx] = Object.assign({}, players[idx], { offline: true });
+      this.setData({ roomPlayers: players });
+    }
+    wx.showToast({ title: (msg.playerName || ('玩家' + (idx+1))) + ' 已离线', icon: 'none', duration: 2000 });
+  },
+
+  _onGameReconnect: function(msg) {
+    console.log("[Game] gameReconnect (断线后回到对局中)", msg);
+    if (!msg.session) return;
+    this.session = msg.session;
+    wx.setStorageSync("gameSession", JSON.stringify(msg.session));
+    this.setData({
+      gameStarted: true,
+      allReady: false,
+      showBidActions: msg.session.state === "bidding" || msg.session.state === "reverse",
+      showPlayActions: msg.session.state === "playing",
+      showReconnecting: false
+    });
+    this.refreshUI();
+    wx.showToast({ title: "重连成功，已恢复对局", icon: 'success', duration: 1500 });
   },
 
   refreshUI: function() {

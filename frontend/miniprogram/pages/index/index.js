@@ -147,7 +147,11 @@ Page({
     if (!wsClient || !wsClient.isConnected()) { wx.showToast({ title: "服务器未连接", icon: "none" }); return; }
     if (this.data.inRoom) { wx.showToast({ title: "已在房间内", icon: "none" }); return; }
     this.setData({ inRoom: true });
-    wsClient.send({ type: 'createRoom', name: wx.getStorageSync('playerName') || '玩家', nickname: wx.getStorageSync('playerNickname') || '', avatar: wx.getStorageSync('playerAvatar') || '' });
+    var name = wx.getStorageSync('playerName') || '玩家';
+    var nickname = wx.getStorageSync('playerNickname') || '';
+    var avatar = wx.getStorageSync('playerAvatar') || '';
+    wsClient.saveIdentity({ name: name, nickname: nickname, avatar: avatar });
+    wsClient.send({ type: 'createRoom', name: name, nickname: nickname, avatar: avatar });
   },
 
   onJoinRoomIdInput: function(e) {
@@ -162,7 +166,11 @@ Page({
       wx.showToast({ title: '已在房间内，请先退出', icon: 'none' });
       return;
     }
-    wsClient.send({ type: 'joinRoom', roomId: roomId, name: wx.getStorageSync('playerName') || '玩家', nickname: wx.getStorageSync('playerNickname') || '', avatar: wx.getStorageSync('playerAvatar') || '' });
+    var name = wx.getStorageSync('playerName') || '玩家';
+    var nickname = wx.getStorageSync('playerNickname') || '';
+    var avatar = wx.getStorageSync('playerAvatar') || '';
+    wsClient.saveIdentity({ name: name, nickname: nickname, avatar: avatar, roomId: roomId });
+    wsClient.send({ type: 'joinRoom', roomId: roomId, name: name, nickname: nickname, avatar: avatar });
     this.setData({ joinRoomId: '' });
   },
 
@@ -174,7 +182,11 @@ Page({
       wx.showToast({ title: '已在房间内，请先退出', icon: 'none' });
       return;
     }
-    wsClient.send({ type: 'joinRoom', roomId: room.id, name: wx.getStorageSync('playerName') || '玩家', nickname: wx.getStorageSync('playerNickname') || '', avatar: wx.getStorageSync('playerAvatar') || '' });
+    var name = wx.getStorageSync('playerName') || '玩家';
+    var nickname = wx.getStorageSync('playerNickname') || '';
+    var avatar = wx.getStorageSync('playerAvatar') || '';
+    wsClient.saveIdentity({ name: name, nickname: nickname, avatar: avatar, roomId: room.id });
+    wsClient.send({ type: 'joinRoom', roomId: room.id, name: name, nickname: nickname, avatar: avatar });
   },
 
   onToggleReady: function() {
@@ -194,6 +206,10 @@ Page({
   onLeaveRoom: function() {
     if (wsClient) {
       wsClient.send({ type: 'leaveRoom' });
+      // 清除身份信息（断线重连就不会再自动 rejoin 这个房间）
+      if (wsClient.saveIdentity) {
+        wsClient.saveIdentity({ roomId: '', myIndex: -1 });
+      }
     }
     wx.removeStorageSync('currentRoomId');
     wx.removeStorageSync('myIndex');
