@@ -58,7 +58,11 @@ Page({
       { key: "club",        label: "♣", suitClass: "suit-club",    lit: false, dim: true },
       { key: "diamond",     label: "♦", suitClass: "suit-diamond", lit: false, dim: true }
     ],
-    trumpCaption: "等待叫主"
+    trumpCaption: "等待叫主",
+    // 发牌动画
+    dealing: false,
+    dealingText: "发牌中...",
+    dealingDone: 0
   },
 
   onLoad: function(options) {
@@ -154,6 +158,8 @@ Page({
 
     // 关键修复：gameStart 消息在本页 onLoad 之前就已到达（index 页收到后才跳转过来），
     // 本页注册处理器时早已错过。index 页跳转前把 session 存进了 storage，这里直接采用。
+    // 但如果是跳页中途触发的 gameStart（不带 dealing 动画），直接刷新即可；
+    // 如果是本页 onLoad 触发的（index 跳转前 waitDeal=true），发牌动画由 index 端启动。
     var pendingSession = wx.getStorageSync("gameSession");
     if (pendingSession) {
       try {
@@ -242,11 +248,75 @@ Page({
     this.setData({
       gameStarted: true,
       allReady: false,
-      showBidActions: true,
+      showBidActions: false,         // 发牌阶段还没到叫分
       showPlayActions: false,
-      waitingText: "等待叫分..."
+      waitingText: "等待发牌...",
+      dealing: true,                 // 显示发牌遮罩
+      dealingText: "发牌中...",
+      dealingDone: 0
     });
-    this.refreshUI();
+    this._animateDeal(msg.session);
+  },
+
+  // 发牌动画：逐张把牌从 0 翻到 25，每张 50ms 错开
+  // 同步把 4 家手牌数从 0 涨到 25
+  _animateDeal: function(s) {
+    var me = s.players ? s.players[this.data.myIndex] : null;
+    var fullHand = (me && me.hand) ? me.hand.map(function(c) {
+      return { card: c, display: c.display || c.toString(), selected: false, playable: true, red: c.suit === "diamond" || c.suit === "heart" };
+    }) : [];
+    var total = fullHand.length || 25;
+    var self = this;
+    var stepMs = 50;  // 每张牌 50ms，25 张 = 1.25s
+
+    // 起始：清空手牌
+    this.setData({
+      myHand: [],
+      myHandCount: 0,
+      p1Count: 0, p2Count: 0, p3Count: 0,
+      dealingDone: 0
+    });
+
+    // 预生成"打乱"的 4 家发牌顺序（每家都有 total 张，4 家轮发）
+    // 但为了视觉一致，按 4 家轮流各发 1 张
+    var timeline = [];  // [{handIdx, oppCount}]
+    for (var i = 0; i < total; i++) {
+      // 我方发的张数
+      var oppCount = i;  // 累计已发给对手的总张数（每家 1 张，4 家共 4 张）
+      // 但视觉上更直观：4 家同步增长到 total
+      timeline.push({
+        myCount: i + 1,
+        oppPerPlayer: i + 1
+      });
+    }
+
+    var k = 0;
+    function next() {
+      if (k >= total) {
+        // 结束：去掉发牌遮罩，进入叫分阶段
+        self.setData({
+          dealing: false,
+          dealingDone: total,
+          showBidActions: (s.currentBidderIndex === self.data.myIndex),
+          waitingText: (s.currentBidderIndex === self.data.myIndex) ? "轮到您叫分" : ("等待玩家" + (s.currentBidderIndex + 1) + "叫分...")
+        });
+        return;
+      }
+      // 把第 k 张牌加到 myHand，并附 dealing-in class 触发翻牌动画
+      var newCard = Object.assign({}, fullHand[k], { dealing: true });
+      var newHand = self.data.myHand.concat([newCard]);
+      self.setData({
+        myHand: newHand,
+        myHandCount: newHand.length,
+        p1Count: k + 1,
+        p2Count: k + 1,
+        p3Count: k + 1,
+        dealingDone: k + 1
+      });
+      k++;
+      setTimeout(next, stepMs);
+    }
+    setTimeout(next, 200);  // 初始 200ms 缓冲
   },
 
   _onBidResult: function(msg) {

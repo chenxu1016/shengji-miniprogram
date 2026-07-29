@@ -66,35 +66,31 @@
   </view>
 
   <view class="game-stage" wx:if="{{gameStarted}}">
-    <!-- 左上角记分面板：双方级别 + 当前局分 + 本局打什么色 -->
-    <view class="score-panel">
-      <view class="score-row">
-        <text class="score-team mine">我方 {{scorePanel.myLevel}}级</text>
-        <text class="score-team opp">对方 {{scorePanel.oppLevel}}级</text>
+    <!-- 顶部信息条：左上记分面板 + 右侧亮主区（横向 6 chip 小条） -->
+    <view class="top-bar">
+      <view class="score-panel">
+        <view class="score-row">
+          <text class="score-team mine">我方 {{scorePanel.myLevel}}级</text>
+          <text class="score-team opp">对方 {{scorePanel.oppLevel}}级</text>
+        </view>
+        <view class="score-row">
+          <text class="score-points mine">本轮 {{scorePanel.myScore}}分</text>
+          <text class="score-points opp">对方 {{scorePanel.oppScore}}分</text>
+        </view>
+        <view class="score-row trump-info">
+          <text class="trump-info-text">本局打:{{scorePanel.trumpText}}</text>
+        </view>
       </view>
-      <view class="score-row">
-        <text class="score-points mine">本轮 {{scorePanel.myScore}}分</text>
-        <text class="score-points opp">对方 {{scorePanel.oppScore}}分</text>
-      </view>
-      <view class="score-row trump-info">
-        <text class="trump-info-text">本局打：{{scorePanel.trumpText}}</text>
-      </view>
-    </view>
 
-    <!-- 中央亮主区：级牌数字 + 6 花色块（亮=已叫主/可反主，暗=未叫/已压） -->
-    <view class="trump-display" wx:if="{{trumpDisplayVisible}}">
-      <view class="trump-header">
-        <view class="trump-level-card">
-          <text class="trump-level-text">{{levelText}}</text>
+      <!-- 顶部右侧：6 chip 横排 + caption -->
+      <view class="trump-display" wx:if="{{trumpDisplayVisible}}">
+        <view class="trump-chips">
+          <view class="trump-chip {{item.lit ? 'lit' : ''}} {{item.dim ? 'dim' : ''}} {{item.suitClass}}"
+                wx:for="{{trumpChips}}" wx:key="key">
+            <text class="chip-label">{{item.label}}</text>
+          </view>
         </view>
         <text class="trump-caption">{{trumpCaption}}</text>
-      </view>
-      <view class="trump-chips">
-        <view class="trump-chip {{item.lit ? 'lit' : ''}} {{item.dim ? 'dim' : ''}} {{item.suitClass}}"
-              wx:for="{{trumpChips}}" wx:key="key">
-          <text class="chip-label">{{item.label}}</text>
-          <text class="chip-sub">{{levelText}}</text>
-        </view>
       </view>
     </view>
 
@@ -119,7 +115,14 @@
         <view class="trick-slot" wx:for="{{trickCards}}" wx:key="index" wx:if="{{item}}">
           <text class="trick-card {{item.red?'red':''}}">{{item.display}}</text>
         </view>
-        <text class="waiting-hint" wx:if="{{!hasPlayedCards}}">{{waitingText}}</text>
+        <text class="waiting-hint" wx:if="{{!hasPlayedCards && !dealing}}">{{waitingText}}</text>
+      </view>
+
+      <!-- 发牌中遮罩：覆盖牌桌区中央，挡住对手头像 -->
+      <view class="dealing-overlay" wx:if="{{dealing}}">
+        <view class="dealing-spinner"></view>
+        <text class="dealing-text">{{dealingText}}</text>
+        <text class="dealing-count">已发 {{dealingDone}}/25</text>
       </view>
     </view>
 
@@ -148,7 +151,7 @@
     <!-- 手牌区 -->
     <scroll-view class="hand-area" scroll-x="true">
       <view class="hand-cards">
-        <view class="hand-card {{item.selected?'selected':''}} {{item.red?'red':''}}"
+        <view class="hand-card {{item.selected?'selected':''}} {{item.red?'red':''}} {{item.dealing?'dealing-in':''}}"
               wx:for="{{myHand}}" wx:key="index"
               data-index="{{index}}" bindtap="onCardTap">
           <text>{{item.display}}</text>

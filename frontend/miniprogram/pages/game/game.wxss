@@ -201,20 +201,30 @@ page {
   overflow: hidden;
 }
 
-/* 第1行：左上记分面板 + 中央亮主区（都绝对定位在 game-stage 内） */
+/* 第1行：顶部条 - 固定 76rpx，左记分面板 + 右亮主区横条 */
+.top-bar {
+  flex: 0 0 76rpx;
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 4rpx 8rpx;
+  background: rgba(0,0,0,0.5);
+  overflow: hidden;
+}
 
-/* 左上角记分面板 */
+/* 左上角记分面板 - 改为内联在 top-bar */
 .score-panel {
-  position: absolute;
-  top: 8rpx;
-  left: 8rpx;
-  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 2rpx;
   background: rgba(0, 0, 0, 0.55);
   border: 2rpx solid rgba(255, 215, 0, 0.4);
-  border-radius: 12rpx;
-  padding: 6rpx 12rpx;
-  min-width: 220rpx;
+  border-radius: 10rpx;
+  padding: 4rpx 10rpx;
+  min-width: 240rpx;
+  max-width: 360rpx;
   box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.5);
+  flex-shrink: 0;
   pointer-events: none;
 }
 
@@ -259,99 +269,57 @@ page {
   letter-spacing: 1rpx;
 }
 
-/* 中央亮主区 */
+/* 中央亮主区 - 顶部横条右侧，不再 absolute 居中 */
 .trump-display {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 5;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12rpx;
-  pointer-events: none;
-}
-
-.trump-display .trump-header {
+  margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 10rpx;
-}
-
-.trump-display .trump-level-card {
-  width: 72rpx;
-  height: 96rpx;
-  background: linear-gradient(135deg, #fff5d6, #ffe79a);
-  border: 3rpx solid #f59e0b;
-  border-radius: 10rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4rpx 12rpx rgba(245, 158, 11, 0.5);
-}
-
-.trump-display .trump-level-text {
-  font-size: 44rpx;
-  font-weight: bold;
-  color: #b45309;
-  text-shadow: 0 1rpx 2rpx rgba(255, 255, 255, 0.5);
-}
-
-.trump-display .trump-caption {
-  font-size: 24rpx;
-  color: #fbbf24;
-  font-weight: bold;
-  background: rgba(0, 0, 0, 0.6);
-  padding: 4rpx 14rpx;
-  border-radius: 16rpx;
-  border: 1rpx solid rgba(251, 191, 36, 0.4);
-  text-shadow: 0 1rpx 2rpx rgba(0, 0, 0, 0.6);
-  white-space: nowrap;
+  gap: 8rpx;
+  flex-shrink: 0;
+  max-width: 60%;
 }
 
 .trump-display .trump-chips {
   display: flex;
-  gap: 8rpx;
+  gap: 4rpx;
   background: rgba(0, 0, 0, 0.55);
-  padding: 10rpx 14rpx;
-  border-radius: 24rpx;
-  border: 2rpx solid rgba(255, 215, 0, 0.3);
+  padding: 4rpx 8rpx;
+  border-radius: 16rpx;
+  border: 1rpx solid rgba(255, 215, 0, 0.3);
 }
 
 .trump-display .trump-chip {
-  width: 76rpx;
-  height: 86rpx;
+  width: 44rpx;
+  height: 44rpx;
   background: linear-gradient(180deg, #2a2a2a, #1a1a1a);
   border: 2rpx solid #555;
-  border-radius: 12rpx;
+  border-radius: 8rpx;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2rpx;
   position: relative;
   transition: all 0.3s ease;
 }
 
 .trump-display .trump-chip.dim {
-  opacity: 0.45;
+  opacity: 0.4;
   border-color: #333;
   background: linear-gradient(180deg, #222, #111);
 }
 
 .trump-display .trump-chip.lit {
   border-color: #fbbf24;
-  border-width: 3rpx;
+  border-width: 2rpx;
   background: linear-gradient(180deg, #fde68a, #fbbf24);
-  box-shadow: 0 0 16rpx rgba(251, 191, 36, 0.8), inset 0 0 8rpx rgba(255, 255, 255, 0.3);
-  transform: scale(1.05);
+  box-shadow: 0 0 8rpx rgba(251, 191, 36, 0.7), inset 0 0 4rpx rgba(255, 255, 255, 0.3);
+  transform: scale(1.08);
 }
 
 .trump-display .trump-chip .chip-label {
-  font-size: 28rpx;
+  font-size: 18rpx;
   font-weight: bold;
   color: rgba(255, 255, 255, 0.6);
+  line-height: 1;
 }
 
 .trump-display .trump-chip.lit .chip-label {
@@ -361,27 +329,25 @@ page {
 
 .trump-display .trump-chip.suit-spade .chip-label { color: #d1d5db; }
 .trump-display .trump-chip.suit-spade.lit .chip-label { color: #1f2937; }
-
 .trump-display .trump-chip.suit-heart .chip-label { color: #fca5a5; }
 .trump-display .trump-chip.suit-heart.lit .chip-label { color: #b91c1c; }
-
 .trump-display .trump-chip.suit-club .chip-label { color: #86efac; }
 .trump-display .trump-chip.suit-club.lit .chip-label { color: #14532d; }
-
 .trump-display .trump-chip.suit-diamond .chip-label { color: #93c5fd; }
 .trump-display .trump-chip.suit-diamond.lit .chip-label { color: #1e3a8a; }
-
 .trump-display .trump-chip.suit-joker .chip-label { color: #fde68a; }
 .trump-display .trump-chip.suit-joker.lit .chip-label { color: #92400e; }
 
-.trump-display .trump-chip .chip-sub {
+.trump-display .trump-caption {
   font-size: 18rpx;
-  color: rgba(255, 255, 255, 0.4);
+  color: #fbbf24;
   font-weight: bold;
-}
-
-.trump-display .trump-chip.lit .chip-sub {
-  color: rgba(124, 45, 18, 0.7);
+  background: rgba(0, 0, 0, 0.6);
+  padding: 2rpx 10rpx;
+  border-radius: 12rpx;
+  border: 1rpx solid rgba(251, 191, 36, 0.4);
+  text-shadow: 0 1rpx 2rpx rgba(0, 0, 0, 0.6);
+  white-space: nowrap;
 }
 
 /* 第2行：牌桌区 - flex: 1 自适应 */
@@ -486,6 +452,60 @@ page {
   margin: 0 auto;
   width: fit-content;
   z-index: 2;
+}
+
+/* 发牌遮罩 - 覆盖牌桌区中央，挡住对手头像，配 spinner */
+.dealing-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10rpx;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 15;
+  border-radius: 8rpx;
+}
+
+.dealing-overlay .dealing-spinner {
+  width: 36rpx;
+  height: 36rpx;
+  border: 3rpx solid rgba(255,255,255,0.2);
+  border-top-color: #fbbf24;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.dealing-overlay .dealing-text {
+  font-size: 22rpx;
+  color: #fbbf24;
+  font-weight: bold;
+  text-shadow: 0 1rpx 2rpx rgba(0,0,0,0.6);
+}
+
+.dealing-overlay .dealing-count {
+  font-size: 18rpx;
+  color: rgba(255,255,255,0.7);
+}
+
+/* 翻牌动画：每张新牌从下方飞入 + 翻面 */
+.hand-card.dealing-in {
+  animation: dealFlyIn 0.4s ease-out backwards;
+}
+
+@keyframes dealFlyIn {
+  0% {
+    transform: translateX(-200rpx) translateY(-100rpx) rotate(-180deg) scale(0.3);
+    opacity: 0;
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(0) translateY(0) rotate(0) scale(1);
+    opacity: 1;
+  }
 }
 
 /* 第3行：操作栏 - 固定 80rpx */
