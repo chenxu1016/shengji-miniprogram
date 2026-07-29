@@ -310,7 +310,7 @@ Page({
     }) : [];
     var total = fullHand.length || 25;
     var self = this;
-    var stepMs = 200;  // 每张牌 200ms，25 张 = 5s，明显可见
+    var stepMs = 500;  // 每张牌 500ms（用户要求"0.5秒发一张"），25 张 = 12.5s 明显可见
 
     // 起始：清空手牌（防重入）
     this.setData({
@@ -396,6 +396,36 @@ Page({
       showBidActions: (s.currentBidderIndex === this.data.myIndex)
     });
     wx.showToast({ title: "进入叫分阶段", icon: "none", duration: 1200 });
+  },
+
+  // 点击亮主区横条的某个 chip：直接以"亮主"叫分（0分）并指定花色
+  // big_joker / small_joker 也支持——后端接受 suit 为 joker 特殊处理
+  onTrumpChipTap: function(e) {
+    if (!wsClient || !this.session) return;
+    var suit = e.currentTarget.dataset.suit;
+    if (!suit) return;
+    // 仅在自己首家叫分时（或反主阶段自己可决策时）允许点击
+    var s = this.session;
+    var myTurn = false;
+    if (s.state === "bidding" && s.currentBidderIndex === this.data.myIndex) myTurn = true;
+    if (s.state === "reverse" && s.currentBidderIndex === this.data.myIndex) myTurn = true;
+    if (!myTurn) {
+      wx.showToast({ title: "还没轮到你叫分", icon: "none" });
+      return;
+    }
+    var suitLabel = (suit === "big_joker") ? "大王" : (suit === "small_joker") ? "小王" :
+                    (suitNames[suit] || suit);
+    wx.showModal({
+      title: "亮主确认",
+      content: "以 " + suitLabel + " 为主花色（0分亮主），是否确定？",
+      confirmText: "亮主",
+      cancelText: "取消",
+      success: function(res) {
+        if (res.confirm) {
+          wsClient.send({ type: "bid", bid: "0", suit: suit });
+        }
+      }
+    });
   },
 
   _onBidResult: function(msg) {
@@ -572,13 +602,16 @@ Page({
         }
       }
     }
+    // 首家叫分时 chip 可点击（直接亮牌叫分）
+    var myTurn = (s.state === "bidding" && s.currentBidderIndex === this.data.myIndex)
+              || (s.state === "reverse" && s.currentBidderIndex === this.data.myIndex);
     var chips = [
-      { key: "big_joker",   label: "大", suitClass: "suit-joker",   lit: false, dim: true },
-      { key: "small_joker", label: "小", suitClass: "suit-joker",   lit: false, dim: true },
-      { key: "spade",       label: "♠", suitClass: "suit-spade",   lit: false, dim: true },
-      { key: "heart",       label: "♥", suitClass: "suit-heart",   lit: false, dim: true },
-      { key: "club",        label: "♣", suitClass: "suit-club",    lit: false, dim: true },
-      { key: "diamond",     label: "♦", suitClass: "suit-diamond", lit: false, dim: true }
+      { key: "big_joker",   label: "大", suitClass: "suit-joker",   lit: false, dim: true, clickable: myTurn },
+      { key: "small_joker", label: "小", suitClass: "suit-joker",   lit: false, dim: true, clickable: myTurn },
+      { key: "spade",       label: "♠", suitClass: "suit-spade",   lit: false, dim: true, clickable: myTurn },
+      { key: "heart",       label: "♥", suitClass: "suit-heart",   lit: false, dim: true, clickable: myTurn },
+      { key: "club",        label: "♣", suitClass: "suit-club",    lit: false, dim: true, clickable: myTurn },
+      { key: "diamond",     label: "♦", suitClass: "suit-diamond", lit: false, dim: true, clickable: myTurn }
     ];
     if (currentSuit) {
       for (var i=0;i<chips.length;i++){
@@ -603,10 +636,10 @@ Page({
         var bidScoreStr = (latestBidScore > 0) ? (latestBidScore + "分") : "亮主";
         caption = "已叫" + (suitNames[currentSuit] || currentSuit) + " " + bidScoreStr;
       } else {
-        caption = "等待叫主";
+        caption = myTurn ? "点上方 4 花色或大小王亮主" : "等待叫主";
       }
     } else if (s.state === "reverse") {
-      caption = "是否反主？";
+      caption = myTurn ? "点上方 4 花色或大小王反主" : "等待其他玩家反主";
     } else if (s.state === "playing" || s.state === "scoring" || s.state === "round_end") {
       if (currentSuit) {
         var finalScoreStr = (s.bidScore > 0) ? (s.bidScore + "分亮主") : "亮主坐庄";

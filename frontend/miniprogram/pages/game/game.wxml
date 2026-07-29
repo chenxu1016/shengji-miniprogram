@@ -82,11 +82,13 @@
         </view>
       </view>
 
-      <!-- 顶部右侧：6 chip 横排 + caption -->
+      <!-- 顶部右侧：6 chip 横排 + caption。chip 可点击亮主叫分 -->
       <view class="trump-display" wx:if="{{trumpDisplayVisible}}">
         <view class="trump-chips">
-          <view class="trump-chip {{item.lit ? 'lit' : ''}} {{item.dim ? 'dim' : ''}} {{item.suitClass}}"
-                wx:for="{{trumpChips}}" wx:key="key">
+          <view class="trump-chip {{item.lit ? 'lit' : ''}} {{item.dim ? 'dim' : ''}} {{item.suitClass}} {{item.clickable ? 'clickable' : ''}}"
+                wx:for="{{trumpChips}}" wx:key="key"
+                data-suit="{{item.key}}" data-bid="0"
+                bindtap="onTrumpChipTap">
             <text class="chip-label">{{item.label}}</text>
           </view>
         </view>
@@ -125,7 +127,8 @@
         <text class="dealing-count">已发 {{dealingDone}}/25</text>
       </view>
 
-      <!-- 反牌倒计时遮罩：发牌完成后接管，给非庄家 15s 考虑反主 -->
+      <!-- 反牌倒计时遮罩：发牌完成后接管，给非庄家 15s 考虑反主。
+           改成只覆盖中央 60% 区域，让顶部亮主区横条始终可见可点击 -->
       <view class="reverse-overlay" wx:if="{{reverseCountdownActive}}">
         <view class="reverse-card">
           <view class="reverse-title">反牌倒计时</view>
@@ -135,7 +138,7 @@
             </view>
           </view>
           <view class="reverse-hint">其他玩家有 {{reverseCountdown}} 秒时间考虑是否反主</view>
-          <view class="reverse-tips">提示：可以用"无主+对子"等组合反主</view>
+          <view class="reverse-tips">提示：点上方 4 个花色/大小王直接亮主叫分</view>
           <button class="reverse-skip-btn" bindtap="onSkipReverseCountdown">开始叫分 →</button>
         </view>
       </view>
@@ -163,8 +166,8 @@
       <text class="turn-hint" wx:if="{{!showBidActions && !showReverseActions && !showPlayActions}}">{{waitingText}}</text>
     </view>
 
-    <!-- 手牌区 -->
-    <scroll-view class="hand-area" scroll-x="true">
+    <!-- 手牌区（用普通 view 替代 scroll-view，避免被 flex 父容器压成 0 高度） -->
+    <view class="hand-area">
       <view class="hand-cards">
         <view class="hand-card {{item.selected?'selected':''}} {{item.red?'red':''}} {{item.dealing?'dealing-in':''}}"
               wx:for="{{myHand}}" wx:key="index"
@@ -172,6 +175,6 @@
           <text>{{item.display}}</text>
         </view>
       </view>
-    </scroll-view>
+    </view>
   </view>
 </view>

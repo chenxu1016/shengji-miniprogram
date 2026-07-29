@@ -301,6 +301,23 @@ page {
   transition: all 0.3s ease;
 }
 
+.trump-display .trump-chip.clickable {
+  cursor: pointer;
+  border-color: #fbbf24;
+  box-shadow: 0 0 6rpx rgba(251, 191, 36, 0.5);
+  animation: chipBreath 1.6s ease-in-out infinite;
+}
+
+.trump-display .trump-chip.clickable:active {
+  transform: scale(0.92);
+  background: linear-gradient(180deg, #fde68a, #fbbf24);
+}
+
+@keyframes chipBreath {
+  0%, 100% { box-shadow: 0 0 6rpx rgba(251, 191, 36, 0.4); }
+  50% { box-shadow: 0 0 14rpx rgba(251, 191, 36, 0.9); }
+}
+
 .trump-display .trump-chip.dim {
   opacity: 0.4;
   border-color: #333;
@@ -492,16 +509,19 @@ page {
   border-radius: 16rpx;
 }
 
-/* ===== 反牌倒计时遮罩（发完牌后）===== */
+/* ===== 反牌倒计时遮罩（发完牌后）：只覆盖中央 60% 区域，让顶部亮主区横条始终可点 ===== */
 .reverse-overlay {
   position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: 10%;
+  left: 20%;
+  right: 20%;
+  bottom: 10%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.65);
+  background: rgba(0, 0, 0, 0.55);
   z-index: 18;
-  border-radius: 8rpx;
+  border-radius: 16rpx;
 }
 
 .reverse-card {
@@ -656,11 +676,13 @@ page {
   text-align: center;
 }
 
-/* 第4行：手牌 - 固定 140rpx，25张缩小到能单屏放下 */
+/* 第4行：手牌 - 显式 height 140rpx（普通 view 替代 scroll-view，避免被 flex 父容器压成 0 高度） */
 .hand-area {
   flex: 0 0 140rpx;
-  display: flex;
-  align-items: center;
+  height: 140rpx;
+  width: 100%;
+  box-sizing: border-box;
+  display: block;
   padding: 10rpx 16rpx;
   background: rgba(0,0,0,0.4);
   overflow-x: auto;
