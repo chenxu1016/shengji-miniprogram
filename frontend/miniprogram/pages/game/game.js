@@ -56,23 +56,30 @@ Page({
       return {...p, initial: initial};
     });
     
-    var storedName = wx.getStorageSync("playerName") || "";
-    // Fallback: if name matching fails, default to first player in room or index 0
+    // 优先使用后端 joined 消息下发的权威座位号（index 页已存入 storage）
     var myIndex = 0;
-    if (storedName && players.length > 0) {
-      var foundIdx = players.findIndex(function(p){return p.name === storedName;});
-      if (foundIdx >= 0) myIndex = foundIdx;
+    var storedIdx = wx.getStorageSync("myIndex");
+    if (storedIdx !== "" && storedIdx !== null && !isNaN(parseInt(storedIdx))) {
+      myIndex = parseInt(storedIdx);
     } else {
-      myIndex = parseInt(wx.getStorageSync("myIndex")) || 0;
+      // 兜底：昵称匹配（重名时不可靠）
+      var storedName = wx.getStorageSync("playerName") || "";
+      if (storedName && players.length > 0) {
+        var foundIdx = players.findIndex(function(p){return p.name === storedName;});
+        if (foundIdx >= 0) myIndex = foundIdx;
+      }
     }
     // Ensure myIndex is within bounds
-    myIndex = Math.min(Math.max(myIndex, 0), players.length - 1);
+    if (players.length > 0) {
+      myIndex = Math.min(Math.max(myIndex, 0), players.length - 1);
+    }
     
     this.setData({
       gameStarted: false,
       roomId: roomId,
       myIndex: myIndex,
       roomPlayers: players,
+      roomPlayerCount: players.length,
       selfReady: players[myIndex] ? players[myIndex].ready : false,
       allReady: players.length > 0 ? players.every(function(p){return p.ready;}) : false
     });
@@ -85,6 +92,27 @@ Page({
     wsClient.onMessage("reverseResult", this._onReverseResult.bind(this));
     wsClient.onMessage("roundEnd", this._onRoundEnd.bind(this));
     wsClient.onMessage("error", this._onError.bind(this));
+
+    // 关键修复：gameStart 消息在本页 onLoad 之前就已到达（index 页收到后才跳转过来），
+    // 本页注册处理器时早已错过。index 页跳转前把 session 存进了 storage，这里直接采用。
+    var pendingSession = wx.getStorageSync("gameSession");
+    if (pendingSession) {
+      try {
+        var sess = JSON.parse(pendingSession);
+        if (sess && sess.state && sess.state !== "finished") {
+          console.log("[Game] Adopting pending gameSession from storage, state=", sess.state);
+          this.session = sess;
+          this.setData({
+            gameStarted: true,
+            allReady: false,
+            showBidActions: sess.state === "bidding" || sess.state === "reverse",
+            showPlayActions: sess.state === "playing",
+            waitingText: sess.state === "playing" ? "" : "等待叫分..."
+          });
+          this.refreshUI();
+        }
+      } catch(e) { console.error("[Game] Failed to parse pending session", e); }
+    }
   },
 
   _onRoomUpdate: function(msg) {
@@ -97,6 +125,7 @@ Page({
       });
       this.setData({
         roomPlayers: players,
+        roomPlayerCount: players.length,
         allReady: players.every(function(p){return p.ready;}),
         p1Ready: players[1]?players[1].ready:false,
         p2Ready: players[2]?players[2].ready:false,
@@ -117,6 +146,7 @@ Page({
       });
       this.setData({
         roomPlayers: players,
+        roomPlayerCount: players.length,
         allReady: players.every(function(p){return p.ready;}),
         selfReady: players[this.data.myIndex]?players[this.data.myIndex].ready:false,
         p1Ready: players[1]?players[1].ready:false,
