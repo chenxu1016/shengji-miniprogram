@@ -32,7 +32,10 @@
   "condition": {},
   "packOptions": {
     "include": [],
-    "ignore": []
+    "ignore": [
+      { "type": "glob", "value": "**/*.bak*" },
+      { "type": "glob", "value": "**/*_temp.js" }
+    ]
   },
   "simulatorPluginLibVersion": {},
   "window": {},

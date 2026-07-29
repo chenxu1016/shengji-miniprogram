@@ -1,7 +1,8 @@
 {
   "pages": [
     "pages/index/index",
-    "pages/game/game"
+    "pages/game/game",
+    "pages/rules/rules"
   ],
   "window": {
     "navigationBarTitleText": "升级",

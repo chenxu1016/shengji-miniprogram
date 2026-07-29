@@ -1,27 +1,7 @@
-﻿import { Suit, CardValue, getPoints, isPointCard } from '../models/card';
+import { Suit, CardValue, getPoints, isPointCard } from '../models/card';
 import { Card } from '../models/card';
 import { TrickRecord, RoundResult } from './scoring';
 
-/**
- * 升级对照表
- */
-const LEVEL_PROMOTION = new Map<number, number>([
-  [0, 1],  // 0分: 庄家成功升1级
-  [1, 2],  // 1分: 庄家成功升2级
-  [2, 3],  // 2分: 庄家成功升3级
-  [3, 4],  // 3分: 庄家成功升4级
-]);
-
-const LEVEL_DEMOTION = new Map<number, number>([
-  [0, 2],  // 0分: 庄家失败降2级(闲家升2级)
-  [1, 2],  // 1分: 庄家失败降2级
-  [2, 2],  // 2分: 庄家失败降2级
-  [3, 2],  // 3分: 庄家失败降2级
-]);
-
-/**
- * 升级序列
- */
 const LEVEL_ORDER: CardValue[] = [
   CardValue.TWO, CardValue.THREE, CardValue.FOUR,
   CardValue.FIVE, CardValue.SIX, CardValue.SEVEN,
@@ -29,82 +9,111 @@ const LEVEL_ORDER: CardValue[] = [
   CardValue.JACK, CardValue.QUEEN, CardValue.KING, CardValue.ACE,
 ];
 
-/**
- * 计算本轮结果
- */
-export function calculateRoundResult(
-  bidScore: number,        // 叫分数 (0-3)
-  leaderPoints: number,    // 庄家队抓到的分
-  tricks: TrickRecord[],   // 每墩记录
-  currentLevel: CardValue, // 当前等级
-): RoundResult {
-  const followerPoints = 200 - leaderPoints; // 总分200分
+export function calculateLevelChange(
+  followerPoints: number,
+  isLeaderBidding: boolean,
+): { leaderLevelUp: number; newDealerTeam: number } {
+  let leaderLevelUp = 0;
+  let newDealerTeam = 0;
 
-  let winnerTeam: 'leader' | 'follower';
-  let leaderLevelUp: number;
-
-  if (leaderPoints >= getRequiredPoints(bidScore)) {
-    // 庄家成功
-    winnerTeam = 'leader';
-    leaderLevelUp = LEVEL_PROMOTION.get(bidScore) ?? 1;
+  if (isLeaderBidding) {
+    if (followerPoints === 0) { leaderLevelUp = 3; }
+    else if (followerPoints >= 5 && followerPoints <= 35) { leaderLevelUp = 2; }
+    else if (followerPoints >= 40 && followerPoints <= 75) { leaderLevelUp = 1; }
+    else if (followerPoints === 80) { leaderLevelUp = 0; }
+    else if (followerPoints >= 85 && followerPoints <= 115) { leaderLevelUp = 0; newDealerTeam = 1; }
+    else if (followerPoints >= 120 && followerPoints <= 155) { leaderLevelUp = -1; newDealerTeam = 1; }
+    else if (followerPoints >= 160 && followerPoints <= 195) { leaderLevelUp = -2; newDealerTeam = 1; }
+    else { leaderLevelUp = -3; newDealerTeam = 1; }
   } else {
-    // 庄家失败
-    winnerTeam = 'follower';
-    leaderLevelUp = -(LEVEL_DEMOTION.get(bidScore) ?? 2); // 负数表示降级
+    if (followerPoints === 0) { leaderLevelUp = -3; newDealerTeam = 0; }
+    else if (followerPoints >= 5 && followerPoints <= 35) { leaderLevelUp = -2; newDealerTeam = 0; }
+    else if (followerPoints >= 40 && followerPoints <= 75) { leaderLevelUp = -1; newDealerTeam = 0; }
+    else if (followerPoints === 80) { leaderLevelUp = 0; }
+    else if (followerPoints >= 85 && followerPoints <= 115) { leaderLevelUp = 0; newDealerTeam = 0; }
+    else if (followerPoints >= 120 && followerPoints <= 155) { leaderLevelUp = 1; newDealerTeam = 0; }
+    else if (followerPoints >= 160 && followerPoints <= 195) { leaderLevelUp = 2; newDealerTeam = 0; }
+    else { leaderLevelUp = 3; newDealerTeam = 0; }
   }
 
-  return {
-    leaderScore: leaderPoints,
-    followerScore: followerPoints,
-    winnerTeam,
-    leaderLevelUp,
-    tricks,
-  };
+  leaderLevelUp = Math.max(-3, Math.min(3, leaderLevelUp));
+  return { leaderLevelUp, newDealerTeam };
 }
 
-function getRequiredPoints(bidScore: number): number {
-  switch (bidScore) {
-    case 0: return 0;
-    case 1: return 40;
-    case 2: return 60;
-    case 3: return 80;
-    default: return 0;
+export function calculateDeductionMultiplier(holeCards: Card[]): number {
+  if (!holeCards || holeCards.length === 0) return 2;
+
+  const valueCounts = new Map<CardValue, number>();
+  for (const c of holeCards) { valueCounts.set(c.value, (valueCounts.get(c.value) || 0) + 1); }
+
+  const pairCount = [...valueCounts.values()].filter(v => v >= 2).length;
+  const uniqueValues = valueCounts.size;
+
+  if (holeCards.length === 1) return 2;
+  if (pairCount === uniqueValues && holeCards.length % 2 === 0) {
+    return Math.pow(2, pairCount);
   }
+  if (holeCards.length >= 4 && holeCards.length % 2 === 0) {
+    const order: CardValue[] = [CardValue.TWO, CardValue.THREE, CardValue.FOUR,
+      CardValue.FIVE, CardValue.SIX, CardValue.SEVEN,
+      CardValue.EIGHT, CardValue.NINE, CardValue.TEN,
+      CardValue.JACK, CardValue.QUEEN, CardValue.KING, CardValue.ACE];
+
+    const values = [...valueCounts.keys()];
+    values.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+
+    let isConsecutive = true;
+    for (let j = 1; j < values.length; j++) {
+      if (order.indexOf(values[j]) !== order.indexOf(values[j - 1]) + 1) {
+        isConsecutive = false;
+        break;
+      }
+    }
+
+    if (isConsecutive && pairCount > 0) {
+      return Math.pow(2, pairCount);
+    }
+  }
+
+  return 2;
 }
 
-/**
- * 计算下一级
- */
+export function calculateRoundResult(
+  bidScore: number,
+  leaderPoints: number,
+  tricks: TrickRecord[],
+  currentLevel: CardValue,
+  isLeaderBidding: boolean,
+  holeCards?: Card[],
+): RoundResult {
+  const followerPoints = 200 - leaderPoints;
+  const { leaderLevelUp, newDealerTeam } = calculateLevelChange(followerPoints, isLeaderBidding);
+  let deductionMultiplier = 1;
+  if (holeCards && holeCards.length > 0) {
+    deductionMultiplier = calculateDeductionMultiplier(holeCards);
+  }
+  let winnerTeam: 'leader' | 'follower';
+  if (leaderLevelUp > 0) { winnerTeam = 'leader'; }
+  else if (leaderLevelUp < 0) { winnerTeam = 'follower'; }
+  else { winnerTeam = followerPoints === 80 ? 'leader' : 'follower'; }
+  return { leaderScore: leaderPoints, followerScore: followerPoints, winnerTeam, leaderLevelUp, tricks, newDealerTeam };
+}
+
 export function getNextLevel(currentLevel: CardValue): CardValue {
   const idx = LEVEL_ORDER.indexOf(currentLevel);
-  if (idx === -1 || idx >= LEVEL_ORDER.length - 1) {
-    return CardValue.ACE;
-  }
+  if (idx === -1 || idx >= LEVEL_ORDER.length - 1) return CardValue.ACE;
   return LEVEL_ORDER[idx + 1];
 }
 
-/**
- * 计算上一级
- */
 export function getPrevLevel(currentLevel: CardValue): CardValue {
   const idx = LEVEL_ORDER.indexOf(currentLevel);
-  if (idx <= 0) {
-    return CardValue.TWO;
-  }
+  if (idx <= 0) return CardValue.TWO;
   return LEVEL_ORDER[idx - 1];
 }
 
-/**
- * 检查游戏是否结束 (有人达到A级并完成防守)
- */
-export function isGameEnded(
-  teamLevels: Map<number, number>,  // 队伍索引 -> 当前等级
-): boolean {
-  // 简化: 只要有人打到A级就算
+export function isGameEnded(teamLevels: Map<number, number>): boolean {
   for (const level of teamLevels.values()) {
-    if (LEVEL_ORDER[level] === CardValue.ACE) {
-      return true;
-    }
+    if (LEVEL_ORDER[level] === CardValue.ACE) return true;
   }
   return false;
 }

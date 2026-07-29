@@ -4,7 +4,7 @@ import { Deck } from '../models/deck';
 import { Player } from '../models/player';
 import { BidOption, BidState, createBidState, processBid as processBidRule } from './bidding';
 import { validatePlay, PlayType, getReverseOptions, ReverseOption } from './playRules';
-import { calculateRoundResult, isGameEnded, getNextLevel, getPrevLevel } from './roundEnd';
+import { calculateRoundResult, isGameEnded, getNextLevel, getPrevLevel, calculateDeductionMultiplier } from './roundEnd';
 import { TrickRecord, GameState, RoundResult } from './scoring';
 
 // ============================================
@@ -42,6 +42,13 @@ export interface GameSession {
   roundResult: RoundResult | null;
   config: GameConfig;
   log: string[];
+  holeCards: Card[];
+  leaderPoints: number;
+  followerPoints: number;
+  winnerTeam: string;
+  leaderLevelUp: number;
+  deductionMultiplier: number;
+  newDealerTeam: number;
 }
 
 let sessionId = 0;
@@ -104,6 +111,13 @@ export function createGame(config: GameConfig = {}): GameSession {
     roundResult: null,
     config,
     log: ['游戏创建,首家叫分者: 玩家' + (firstBidderIndex + 1)],
+    holeCards: [],
+    leaderPoints: 0,
+    followerPoints: 0,
+    winnerTeam: "follower",
+    leaderLevelUp: 0,
+    deductionMultiplier: 1,
+    newDealerTeam: 0,
   };
 }
 
@@ -122,6 +136,19 @@ export function makeBid(
   }
   if (playerIndex !== session.currentBidderIndex) {
     return { success: false, error: '不是玩家' + (playerIndex + 1) + '的叫分回合' };
+  }
+
+  // 亮主需带王: 红桃/方片带大王, 黑桃/梅花带小王
+  if (bid === BidOption.ZERO && suit) {
+    const hasKing = session.players[playerIndex].hand.some(c => {
+      if (suit === Suit.HEART || suit === Suit.DIAMOND) return c.value === CardValue.BIG_JOKER;
+      return c.value === CardValue.SMALL_JOKER;
+    });
+    if (!hasKing) {
+      const sname = suit === Suit.HEART ? "红桃" : suit === Suit.DIAMOND ? "方片" : suit === Suit.SPADE ? "黑桃" : "梅花";
+      const kname = (suit === Suit.HEART || suit === Suit.DIAMOND) ? "大王" : "小王";
+      return { success: false, error: "亮" + sname + "需要带" + kname };
+    }
   }
 
   const result = validateBidForGame(bid, suit, session);
@@ -416,13 +443,44 @@ function endRound(session: GameSession) {
     }
   }
 
+  // Apply 抠底 (deduction) multiplier if follower wins last trick
+  let deductionMultiplier = 1;
+  if (session.holeCards && session.holeCards.length > 0) {
+    const lastTrickWinner = session.tricks.length > 0 ? 
+      session.tricks[session.tricks.length - 1].winner : -1;
+    
+    // Check if follower won last trick
+    const isFollowerWinningLastTrick = (lastTrickWinner !== session.finalBidderIndex && 
+                                         lastTrickWinner !== getPartnerIndex(session.finalBidderIndex));
+    
+    if (isFollowerWinningLastTrick) {
+      // Calculate hole card points
+      let holePoints = 0;
+      for (const card of session.holeCards) {
+        holePoints += getPoints(card.value);
+      }
+      
+      // Determine multiplier based on last trick type
+      deductionMultiplier = calculateDeductionMultiplier(session.holeCards);
+      
+      // Add doubled points to follower
+      const bonusPoints = holePoints * (deductionMultiplier - 1);
+      leaderPoints -= bonusPoints;
+      if (leaderPoints < 0) leaderPoints = 0;
+      
+      session.log.push('抠底成功! 底牌分数: ' + holePoints + ', 倍数: ' + deductionMultiplier);
+    }
+  }
+
   const roundResult = calculateRoundResult(
     session.bidScore,
-    leaderPoints,
+    Math.max(0, leaderPoints),
     session.tricks,
     session.level,
+    true,
+    session.holeCards,
   );
-
+  
   session.roundResult = roundResult;
 
   if (roundResult.winnerTeam === 'leader') {
@@ -487,6 +545,19 @@ function enterNewRound(session: GameSession) {
 }
 
 function enterPlayingPhase(session: GameSession) {
+  // 庄家扣底牌: 每人25张后剩余8张作为底牌
+  const holeCards = [];
+  for (let i = 0; i < 8; i++) {
+    if (session.deck.cards.length > 0) {
+      const card = session.deck.cards.shift();
+      if (card) holeCards.push(card);
+    }
+  }
+  session.holeCards = holeCards;
+  session.leaderPoints = 0;
+  session.followerPoints = 0;
+  session.deductionMultiplier = 1;
+
   session.state = GameState.PLAYING;
   session.currentTrickWinner = session.finalBidderIndex;
   session.currentTrick = [];
@@ -501,6 +572,11 @@ function enterPlayingPhase(session: GameSession) {
 // ============================================
 // 查询接口
 // ============================================
+
+
+function getPartnerIndex(playerIndex: number): number {
+  return (playerIndex + 2) % 4;
+}
 
 export function getPlayerPlayableCards(
   session: GameSession,
@@ -598,6 +674,7 @@ export function getSessionSummary(session: GameSession): {
   tricksCompleted: number;
   teamLevels: number[];
   log: string[];
+  holeCards: Card[];
 } {
   return {
     state: session.state,
@@ -611,5 +688,6 @@ export function getSessionSummary(session: GameSession): {
       session.teamLevels.get(1) ?? 0,
     ],
     log: session.log.slice(-20),
+    holeCards: session.holeCards || [],
   };
 }

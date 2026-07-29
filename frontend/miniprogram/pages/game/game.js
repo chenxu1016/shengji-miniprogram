@@ -2,6 +2,15 @@
 var levelNames = {two:"2",three:"3",four:"4",five:"5",six:"6",seven:"7",eight:"8",nine:"9",ten:"10",jack:"J",queen:"Q",king:"K",ace:"A"};
 var suitNames = {spade:"黑桃",heart:"红桃",club:"梅花",diamond:"方块",none:"无",null:"无"};
 
+// Helper: Get first letter of name as initial (uppercase)
+function getInitial(name) {
+  if (!name) return '?';
+  // Try to get first character, convert to uppercase
+  var first = name.charAt(0);
+  // For Chinese names, return the first character
+  return first.toUpperCase();
+}
+
 Page({
   data: {
     selfReady: false,
@@ -40,6 +49,13 @@ Page({
     var storedPlayers = wx.getStorageSync("roomPlayers");
     var players = [];
     if (storedPlayers) { try { players = JSON.parse(storedPlayers); } catch(e){} }
+    
+    // Add initial property to each player for display
+    players = players.map(function(p) {
+      var initial = getInitial(p.name || p.nickname || '?');
+      return {...p, initial: initial};
+    });
+    
     var storedName = wx.getStorageSync("playerName") || "";
     // Fallback: if name matching fails, default to first player in room or index 0
     var myIndex = 0;
@@ -49,6 +65,9 @@ Page({
     } else {
       myIndex = parseInt(wx.getStorageSync("myIndex")) || 0;
     }
+    // Ensure myIndex is within bounds
+    myIndex = Math.min(Math.max(myIndex, 0), players.length - 1);
+    
     this.setData({
       gameStarted: false,
       roomId: roomId,
@@ -57,6 +76,7 @@ Page({
       selfReady: players[myIndex] ? players[myIndex].ready : false,
       allReady: players.length > 0 ? players.every(function(p){return p.ready;}) : false
     });
+    
     wsClient.onMessage("roomUpdate", this._onRoomUpdate.bind(this));
     wsClient.onMessage("playerReady", this._onPlayerReady.bind(this));
     wsClient.onMessage("gameStart", this._onGameStart.bind(this));
@@ -70,13 +90,18 @@ Page({
   _onRoomUpdate: function(msg) {
     console.log("[Game] roomUpdate", msg);
     if (msg.players) {
+      // Add initial property to each player
+      var players = msg.players.map(function(p) {
+        var initial = getInitial(p.name || p.nickname || '?');
+        return {...p, initial: initial};
+      });
       this.setData({
-        roomPlayers: msg.players,
-        allReady: msg.players.every(function(p){return p.ready;}),
-        p1Ready: msg.players[1]?msg.players[1].ready:false,
-        p2Ready: msg.players[2]?msg.players[2].ready:false,
-        p3Ready: msg.players[3]?msg.players[3].ready:false,
-        selfReady: msg.players[this.data.myIndex]?msg.players[this.data.myIndex].ready:false
+        roomPlayers: players,
+        allReady: players.every(function(p){return p.ready;}),
+        p1Ready: players[1]?players[1].ready:false,
+        p2Ready: players[2]?players[2].ready:false,
+        p3Ready: players[3]?players[3].ready:false,
+        selfReady: players[this.data.myIndex]?players[this.data.myIndex].ready:false
       });
     }
   },
@@ -85,19 +110,31 @@ Page({
     console.log("[Game] playerReady", msg);
     // Use the players array from backend directly instead of guessing
     if (msg.players) {
+      // Add initial property to each player
+      var players = msg.players.map(function(p) {
+        var initial = getInitial(p.name || p.nickname || '?');
+        return {...p, initial: initial};
+      });
       this.setData({
-        roomPlayers: msg.players,
-        allReady: msg.players.every(function(p){return p.ready;}),
-        selfReady: msg.players[this.data.myIndex]?msg.players[this.data.myIndex].ready:false,
-        p1Ready: msg.players[1]?msg.players[1].ready:false,
-        p2Ready: msg.players[2]?msg.players[2].ready:false,
-        p3Ready: msg.players[3]?msg.players[3].ready:false
+        roomPlayers: players,
+        allReady: players.every(function(p){return p.ready;}),
+        selfReady: players[this.data.myIndex]?players[this.data.myIndex].ready:false,
+        p1Ready: players[1]?players[1].ready:false,
+        p2Ready: players[2]?players[2].ready:false,
+        p3Ready: players[3]?players[3].ready:false
       });
     } else {
       var players = this.data.roomPlayers;
       for (var i=0;i<players.length;i++){
         if(players[i].playerIndex===msg.playerIndex) players[i].ready=true;
       }
+      // Add initial property if missing
+      players = players.map(function(p) {
+        if (!p.initial) {
+          p.initial = getInitial(p.name || p.nickname || '?');
+        }
+        return p;
+      });
       this.setData({
         roomPlayers: players,
         allReady: players.every(function(p){return p.ready;}),
@@ -142,7 +179,6 @@ Page({
     console.log("[Game] playResult", msg);
     this.session = msg.session;
     wx.setStorageSync("gameSession", JSON.stringify(msg.session));
-    this.setData({selectedCards: []});
     this.refreshUI();
   },
 

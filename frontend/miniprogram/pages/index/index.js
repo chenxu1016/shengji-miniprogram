@@ -1,4 +1,4 @@
-﻿var wsClient = null;
+var wsClient = null;
 
 Page({
   data: {
@@ -61,6 +61,11 @@ Page({
         var storedName = wx.getStorageSync("playerName") || "";
         var selfIdx = storedName ? players.findIndex(function(p){return p.name === storedName;}) : parseInt(wx.getStorageSync("myIndex")) || 0;
         wx.setStorageSync('currentRoomId', msg.room.id);
+        // Store players with initial property for game page
+        players = players.map(function(p) {
+          var initial = p.name ? p.name.charAt(0).toUpperCase() : '?';
+          return {...p, initial: initial};
+        });
         wx.setStorageSync('roomPlayers', JSON.stringify(players));
         this.setData({
           connected: true,
@@ -105,6 +110,13 @@ Page({
               players[i].ready = msg.allReady ? true : players[i].ready;
             }
           }
+          // Ensure initial property exists
+          players = players.map(function(p) {
+            if (!p.initial) {
+              p.initial = p.name ? p.name.charAt(0).toUpperCase() : '?';
+            }
+            return p;
+          });
           wx.setStorageSync('roomPlayers', JSON.stringify(players));
           this.setData({
             roomPlayers: players,
@@ -116,7 +128,9 @@ Page({
   },
 
   onCreateRoom: function() {
-    if (!wsClient) return;
+    if (!wsClient || !wsClient.isConnected()) { wx.showToast({ title: "服务器未连接", icon: "none" }); return; }
+    if (this.data.inRoom) { wx.showToast({ title: "已在房间内", icon: "none" }); return; }
+    this.setData({ inRoom: true });
     wsClient.send({ type: 'createRoom', name: wx.getStorageSync('playerName') || '玩家', nickname: wx.getStorageSync('playerNickname') || '', avatar: wx.getStorageSync('playerAvatar') || '' });
   },
 
@@ -128,6 +142,10 @@ Page({
     var roomId = this.data.joinRoomId;
     if (!roomId) return;
     if (!wsClient) return;
+    if (this.data.inRoom) {
+      wx.showToast({ title: '已在房间内，请先退出', icon: 'none' });
+      return;
+    }
     wsClient.send({ type: 'joinRoom', roomId: roomId, name: wx.getStorageSync('playerName') || '玩家', nickname: wx.getStorageSync('playerNickname') || '', avatar: wx.getStorageSync('playerAvatar') || '' });
     this.setData({ joinRoomId: '' });
   },
@@ -136,15 +154,22 @@ Page({
     var room = e.currentTarget.dataset.room;
     if (!room || room.playerCount >= room.maxPlayers) return;
     if (!wsClient) return;
+    if (this.data.inRoom) {
+      wx.showToast({ title: '已在房间内，请先退出', icon: 'none' });
+      return;
+    }
     wsClient.send({ type: 'joinRoom', roomId: room.id, name: wx.getStorageSync('playerName') || '玩家', nickname: wx.getStorageSync('playerNickname') || '', avatar: wx.getStorageSync('playerAvatar') || '' });
   },
 
   onToggleReady: function() {
     if (!wsClient || !this.data.inRoom) return;
     wsClient.send({ type: 'ready' });
-    // Navigate to game room page after ready
-    wx.navigateTo({ url: '/pages/game/game?roomId=' + this.data.currentRoomId });
   },
+  
+  onRules: function() {
+    wx.navigateTo({ url: '/pages/rules/rules' });
+  },
+
   onStartGame: function() {
     if (!wsClient) return;
     wsClient.send({ type: 'startGame' });
@@ -175,11 +200,7 @@ Page({
     wx.showToast({ title: '点击右上角"分享"按钮邀请好友', icon: 'none', duration: 3000 });
   },
 
-  onRules() {
-    wx.showToast({ title: '规则开发中', icon: 'none' });
-  },
-
-  onAbout() {
+  onAbout: function() {
     wx.showToast({ title: '升级扑克 v1.0 在线版', icon: 'none' });
   },
 
@@ -190,3 +211,5 @@ Page({
     };
   }
 });
+
+

@@ -46,7 +46,14 @@ function generateRoomId(): string {
 // 鎴块棿绠＄悊
 // ============================================
 
-function createRoom(hostName: string, nickname: string, avatar: string, ws: WebSocket): Room {
+function createRoom(hostName: string, nickname: string, avatar: string, ws: WebSocket): Room | null {
+  // 防止同一连接重复创建/拥有多个房间：若已在房间，直接拒绝
+  if (playerRooms.has(ws)) {
+    const existing = playerRooms.get(ws)!;
+    sendToWs(ws, { type: 'error', message: '你已经在房间 ' + existing.roomId + ' 中，无法创建新房间' });
+    console.log('[Server] Duplicate createRoom attempt by ' + existing.name + ' (already in room ' + existing.roomId + ')');
+    return null;
+  }
   const roomId = generateRoomId();
   const session = createGame({ numDecks: 2 });
   
@@ -59,7 +66,7 @@ function createRoom(hostName: string, nickname: string, avatar: string, ws: WebS
 
   room.players.push({
     ws,
-    name: hostName || '鐜╁1',
+    name: hostName || '玩家1',
     nickname: nickname || '',
     avatar: avatar || '',
     roomId,
@@ -286,7 +293,7 @@ function handleMessage(ws: WebSocket, data: string): void {
     
     switch (msg.type) {
       case 'createRoom':
-        createRoom(msg.name || '鐜╁1', msg.nickname || '', msg.avatar || '', ws);
+        createRoom(msg.name || '玩家1', msg.nickname || '', msg.avatar || '', ws);
         break;
         
       case 'joinRoom':

@@ -22,6 +22,7 @@ export interface RoundResult {
   winnerTeam: 'leader' | 'follower';
   leaderLevelUp: number; // 庄家升几级
   tricks: TrickRecord[];
+  newDealerTeam?: number; // 0=庄继续坐庄, 1=闲家上台
 }
 
 /**
