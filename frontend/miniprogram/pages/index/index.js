@@ -14,7 +14,9 @@ Page({
     joinRoomId: ''
   },
 
-  onLoad() {
+  onLoad(options) {
+    // 好友通过分享卡片进入时携带的房间号，连上服务器后自动加入
+    this._shareRoomId = (options && options.roomId) ? String(options.roomId) : '';
     // Set default player name from WeChat
     let playerName = '玩家';
     try {
@@ -38,7 +40,13 @@ Page({
       console.log('[Index] Connected to server');
       // Fetch existing rooms
       wsClient.send({ type: 'getRooms' });
-    });
+      // 好友经分享卡片进入：连上后自动加入对应房间
+      if (this._shareRoomId && !this.data.inRoom) {
+        var rid = this._shareRoomId;
+        this._shareRoomId = '';
+        wsClient.send({ type: 'joinRoom', roomId: rid, name: wx.getStorageSync('playerName') || '玩家', nickname: wx.getStorageSync('playerNickname') || '', avatar: wx.getStorageSync('playerAvatar') || '' });
+      }
+    }.bind(this));
 
     wsClient.onMessage('roomUpdate', function(msg) {
       console.log('[Index] roomUpdate:', msg);
@@ -58,9 +66,11 @@ Page({
             ready: p.ready || false
           };
         });
-        var storedName = wx.getStorageSync("playerName") || "";
-        var selfIdx = storedName ? players.findIndex(function(p){return p.name === storedName;}) : parseInt(wx.getStorageSync("myIndex")) || 0;
+        // 优先用后端 joined 消息下发的权威座位号（昵称匹配在重名时会判错）
+        var selfIdx = (typeof this.data.myIndex === 'number' && this.data.myIndex >= 0) ? this.data.myIndex : 0;
+        if (selfIdx >= players.length) selfIdx = 0;
         wx.setStorageSync('currentRoomId', msg.room.id);
+        wx.setStorageSync('myIndex', String(selfIdx));
         // Store players with initial property for game page
         players = players.map(function(p) {
           var initial = p.name ? p.name.charAt(0).toUpperCase() : '?';
@@ -78,6 +88,14 @@ Page({
           allReady: players.every(function(p) { return p.ready; })
         });
       }
+    }.bind(this));
+
+    // 后端单发：自己的权威座位号（建房=0，进房=实际序号，有人退出后会重发）
+    wsClient.onMessage('joined', function(msg) {
+      console.log('[Index] joined:', msg);
+      wx.setStorageSync('myIndex', String(msg.playerIndex));
+      wx.setStorageSync('currentRoomId', msg.roomId);
+      this.setData({ myIndex: msg.playerIndex, inRoom: true, currentRoomId: msg.roomId });
     }.bind(this));
 
     wsClient.onMessage('gameStart', function(msg) {
@@ -101,29 +119,27 @@ Page({
 
     wsClient.onMessage('playerReady', function(msg) {
       console.log('[Index] playerReady:', msg);
-      var stored = wx.getStorageSync('roomPlayers');
-      if (stored) {
-        try {
-          var players = JSON.parse(stored);
-          for (var i = 0; i < players.length; i++) {
-            if (players[i].playerIndex === msg.playerIndex) {
-              players[i].ready = msg.allReady ? true : players[i].ready;
-            }
-          }
-          // Ensure initial property exists
-          players = players.map(function(p) {
-            if (!p.initial) {
-              p.initial = p.name ? p.name.charAt(0).toUpperCase() : '?';
-            }
-            return p;
-          });
-          wx.setStorageSync('roomPlayers', JSON.stringify(players));
-          this.setData({
-            roomPlayers: players,
-            allReady: players.every(function(p) { return p.ready; })
-          });
-        } catch(e) {}
-      }
+      // 直接采用后端广播的权威 players 数组（含每人最新 ready 状态）
+      var players = (msg.players || []).map(function(p) {
+        return {
+          name: p.name,
+          nickname: p.nickname || '',
+          avatar: p.avatar || '',
+          playerIndex: p.playerIndex,
+          ready: p.ready || false,
+          initial: p.name ? p.name.charAt(0).toUpperCase() : '?'
+        };
+      });
+      if (!players.length) return;
+      var myIdx = this.data.myIndex;
+      var me = players.find(function(p) { return p.playerIndex === myIdx; });
+      wx.setStorageSync('roomPlayers', JSON.stringify(players));
+      this.setData({
+        roomPlayers: players,
+        roomPlayerCount: players.length,
+        selfReady: me ? me.ready : false,
+        allReady: !!msg.allReady
+      });
     }.bind(this));
   },
 

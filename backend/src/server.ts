@@ -77,6 +77,8 @@ function createRoom(hostName: string, nickname: string, avatar: string, ws: WebS
   rooms.set(roomId, room);
   playerRooms.set(ws, room.players[0]);
 
+  // 单发：告知该客户端自己的座位号（避免前端靠昵称猜测自己是谁）
+  sendToWs(ws, { type: 'joined', roomId, playerIndex: 0 });
   broadcastRoom(room, { type: 'roomUpdate', room: getRoomInfo(room), players: getRoomInfo(room).players });
 
   console.log('[Server] Room ' + roomId + ' created by ' + room.players[0].name);
@@ -121,6 +123,8 @@ function joinRoom(roomId: string, msg: any, ws: WebSocket): Room | null {
   room.players.push(player);
   playerRooms.set(ws, player);
   console.log('[Server] ' + player.name + ' joined room ' + roomId + ' as player ' + (playerIndex + 1));
+  // 单发：告知该客户端自己的座位号
+  sendToWs(ws, { type: 'joined', roomId, playerIndex });
   broadcastRoom(room, { type: 'roomUpdate', room: getRoomInfo(room), players: getRoomInfo(room).players });
   return room;
 }
@@ -143,6 +147,8 @@ function leaveRoom(ws: WebSocket): void {
   } else {
     room.players.forEach((p, i) => {
       p.playerIndex = i;
+      // 重新编号后单发通知每个玩家自己的新座位号
+      sendToWs(p.ws, { type: 'joined', roomId: room.id, playerIndex: i });
     });
       broadcastRoom(room, { type: 'roomUpdate', room: getRoomInfo(room), players: getRoomInfo(room).players });
   }
