@@ -41,7 +41,24 @@ Page({
     myIndex: 0,
     roomId: "",
     showReconnecting: false,
-    reconnectText: "重连中..."
+    reconnectText: "重连中...",
+    // 新增：左上记分面板
+    scorePanel: {
+      myLevel: 2, oppLevel: 2,
+      myScore: 0, oppScore: 0,
+      trumpText: "未叫主"
+    },
+    // 新增：中央亮主区
+    trumpDisplayVisible: false,
+    trumpChips: [
+      { key: "big_joker",   label: "大", suitClass: "suit-joker",   lit: false, dim: true },
+      { key: "small_joker", label: "小", suitClass: "suit-joker",   lit: false, dim: true },
+      { key: "spade",       label: "♠", suitClass: "suit-spade",   lit: false, dim: true },
+      { key: "heart",       label: "♥", suitClass: "suit-heart",   lit: false, dim: true },
+      { key: "club",        label: "♣", suitClass: "suit-club",    lit: false, dim: true },
+      { key: "diamond",     label: "♦", suitClass: "suit-diamond", lit: false, dim: true }
+    ],
+    trumpCaption: "等待叫主"
   },
 
   onLoad: function(options) {
@@ -352,6 +369,110 @@ Page({
       teamBScore: s.teamLevels?s.teamLevels[1 - (myIdx % 2)]:0
     });
     this._updateTrickArea(s);
+    this._updateScorePanel(s);
+    this._updateTrumpDisplay(s);
+  },
+
+  // 计算本轮双方已得分数（墩分总和，按 winner % 2 分组），以 myTeam 视角返回 my/opp
+  _calcRoundPoints: function(s, myTeam) {
+    var mine = 0, opp = 0;
+    if (s.tricks && s.tricks.length) {
+      for (var i=0;i<s.tricks.length;i++){
+        var t = s.tricks[i];
+        if (typeof t.points !== "number") continue;
+        if ((t.winner % 2) === myTeam) mine += t.points;
+        else opp += t.points;
+      }
+    }
+    return { myScore: mine, oppScore: opp };
+  },
+
+  _updateScorePanel: function(s) {
+    var myIdx = this.data.myIndex;
+    var myTeam = myIdx % 2;          // 0 或 1
+    var oppTeam = 1 - myTeam;
+    var myLevel = (s.teamLevels && s.teamLevels[myTeam] !== undefined) ? (s.teamLevels[myTeam] + 2) : 2;
+    var oppLevel = (s.teamLevels && s.teamLevels[oppTeam] !== undefined) ? (s.teamLevels[oppTeam] + 2) : 2;
+    var pts = this._calcRoundPoints(s, myTeam);
+    // trumpText 用 finalSuit 或 trumpSuit
+    var trumpSuit = s.finalSuit || s.trumpSuit;
+    var trumpText = trumpSuit ? (suitNames[trumpSuit] || trumpSuit) : "未叫主";
+    this.setData({
+      scorePanel: {
+        myLevel: myLevel,
+        oppLevel: oppLevel,
+        myScore: pts.myScore,
+        oppScore: pts.oppScore,
+        trumpText: trumpText
+      }
+    });
+  },
+
+  _updateTrumpDisplay: function(s) {
+    // 在 bidding/reverse/playing 都显示
+    var visible = s.state === "bidding" || s.state === "reverse" || s.state === "playing" || s.state === "scoring" || s.state === "round_end";
+    // 当前已确认的主花色：叫分阶段用最后一次有效叫分（从 bidHistory），其他阶段用 finalSuit/trumpSuit
+    var currentSuit = s.finalSuit || s.trumpSuit || null;
+    if (s.state === "bidding" && s.bidHistory && s.bidHistory.length > 0 && !currentSuit) {
+      // 找最后一次非 pass 的叫分
+      for (var i = s.bidHistory.length - 1; i >= 0; i--) {
+        var b = s.bidHistory[i];
+        if (b.bid !== "pass" && b.suit) {
+          currentSuit = b.suit;
+          break;
+        }
+      }
+    }
+    var chips = [
+      { key: "big_joker",   label: "大", suitClass: "suit-joker",   lit: false, dim: true },
+      { key: "small_joker", label: "小", suitClass: "suit-joker",   lit: false, dim: true },
+      { key: "spade",       label: "♠", suitClass: "suit-spade",   lit: false, dim: true },
+      { key: "heart",       label: "♥", suitClass: "suit-heart",   lit: false, dim: true },
+      { key: "club",        label: "♣", suitClass: "suit-club",    lit: false, dim: true },
+      { key: "diamond",     label: "♦", suitClass: "suit-diamond", lit: false, dim: true }
+    ];
+    if (currentSuit) {
+      for (var i=0;i<chips.length;i++){
+        if (chips[i].key === currentSuit) {
+          chips[i].lit = true;
+          chips[i].dim = false;
+        }
+      }
+    }
+    // 字幕
+    var caption = "";
+    if (s.state === "bidding") {
+      if (currentSuit) {
+        // 找最后一次有效叫分的分值
+        var latestBidScore = 0;
+        for (var j = s.bidHistory.length - 1; j >= 0; j--) {
+          if (s.bidHistory[j].bid !== "pass") {
+            latestBidScore = parseInt(s.bidHistory[j].bid) || 0;
+            break;
+          }
+        }
+        var bidScoreStr = (latestBidScore > 0) ? (latestBidScore + "分") : "亮主";
+        caption = "已叫" + (suitNames[currentSuit] || currentSuit) + " " + bidScoreStr;
+      } else {
+        caption = "等待叫主";
+      }
+    } else if (s.state === "reverse") {
+      caption = "是否反主？";
+    } else if (s.state === "playing" || s.state === "scoring" || s.state === "round_end") {
+      if (currentSuit) {
+        var finalScoreStr = (s.bidScore > 0) ? (s.bidScore + "分亮主") : "亮主坐庄";
+        caption = "本局打" + (suitNames[currentSuit] || currentSuit) + " " + finalScoreStr;
+      } else {
+        caption = "亮主坐庄";
+      }
+    } else {
+      caption = "亮主坐庄";
+    }
+    this.setData({
+      trumpDisplayVisible: visible,
+      trumpChips: chips,
+      trumpCaption: caption
+    });
   },
 
   _oppInfo: function(s, absIdx) {

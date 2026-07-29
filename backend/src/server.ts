@@ -553,6 +553,12 @@ function serializeSession(session: any): any {
     currentTrick: session.currentTrick,
     tricks: session.tricks,
     teamLevels: [session.teamLevels.get(0) ?? 0, session.teamLevels.get(1) ?? 0],
+    // 把叫分历史推给前端，让叫分阶段也能看到当前已叫的花色
+    bidHistory: session.bidState ? session.bidState.bidHistory.map((b: any) => ({
+      player: b.player,
+      bid: b.bid,
+      suit: b.suit || null
+    })) : [],
     log: session.log.slice(-20),
   };
 }

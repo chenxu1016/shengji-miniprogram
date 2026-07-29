@@ -201,36 +201,187 @@ page {
   overflow: hidden;
 }
 
-/* 第1行：信息条 - 固定 56rpx */
-.info-bar {
-  flex: 0 0 56rpx;
+/* 第1行：左上记分面板 + 中央亮主区（都绝对定位在 game-stage 内） */
+
+/* 左上角记分面板 */
+.score-panel {
+  position: absolute;
+  top: 8rpx;
+  left: 8rpx;
+  z-index: 20;
+  background: rgba(0, 0, 0, 0.55);
+  border: 2rpx solid rgba(255, 215, 0, 0.4);
+  border-radius: 12rpx;
+  padding: 6rpx 12rpx;
+  min-width: 220rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+.score-panel .score-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 20rpx;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.score-panel .score-team.mine {
+  color: #4ade80;
+  font-weight: bold;
+}
+
+.score-panel .score-team.opp {
+  color: #f87171;
+  font-weight: bold;
+}
+
+.score-panel .score-points {
+  font-size: 18rpx;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.score-panel .score-points.mine { color: #86efac; }
+.score-panel .score-points.opp { color: #fca5a5; }
+
+.score-panel .trump-info {
+  margin-top: 4rpx;
+  padding-top: 4rpx;
+  border-top: 1rpx solid rgba(255, 215, 0, 0.2);
+  justify-content: center;
+}
+
+.score-panel .trump-info-text {
+  font-size: 20rpx;
+  color: #fbbf24;
+  font-weight: bold;
+  letter-spacing: 1rpx;
+}
+
+/* 中央亮主区 */
+.trump-display {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
+  pointer-events: none;
+}
+
+.trump-display .trump-header {
   display: flex;
   align-items: center;
-  gap: 18rpx;
-  padding: 0 20rpx;
-  background: rgba(0,0,0,0.45);
-  overflow: hidden;
+  gap: 10rpx;
+}
+
+.trump-display .trump-level-card {
+  width: 72rpx;
+  height: 96rpx;
+  background: linear-gradient(135deg, #fff5d6, #ffe79a);
+  border: 3rpx solid #f59e0b;
+  border-radius: 10rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4rpx 12rpx rgba(245, 158, 11, 0.5);
+}
+
+.trump-display .trump-level-text {
+  font-size: 44rpx;
+  font-weight: bold;
+  color: #b45309;
+  text-shadow: 0 1rpx 2rpx rgba(255, 255, 255, 0.5);
+}
+
+.trump-display .trump-caption {
+  font-size: 24rpx;
+  color: #fbbf24;
+  font-weight: bold;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 4rpx 14rpx;
+  border-radius: 16rpx;
+  border: 1rpx solid rgba(251, 191, 36, 0.4);
+  text-shadow: 0 1rpx 2rpx rgba(0, 0, 0, 0.6);
   white-space: nowrap;
 }
 
-.info-bar .info-item {
-  font-size: 22rpx;
-  color: rgba(255,255,255,0.85);
+.trump-display .trump-chips {
+  display: flex;
+  gap: 8rpx;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 10rpx 14rpx;
+  border-radius: 24rpx;
+  border: 2rpx solid rgba(255, 215, 0, 0.3);
 }
 
-.info-bar .state {
-  color: #fbbf24;
+.trump-display .trump-chip {
+  width: 76rpx;
+  height: 86rpx;
+  background: linear-gradient(180deg, #2a2a2a, #1a1a1a);
+  border: 2rpx solid #555;
+  border-radius: 12rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rpx;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.trump-display .trump-chip.dim {
+  opacity: 0.45;
+  border-color: #333;
+  background: linear-gradient(180deg, #222, #111);
+}
+
+.trump-display .trump-chip.lit {
+  border-color: #fbbf24;
+  border-width: 3rpx;
+  background: linear-gradient(180deg, #fde68a, #fbbf24);
+  box-shadow: 0 0 16rpx rgba(251, 191, 36, 0.8), inset 0 0 8rpx rgba(255, 255, 255, 0.3);
+  transform: scale(1.05);
+}
+
+.trump-display .trump-chip .chip-label {
+  font-size: 28rpx;
   font-weight: bold;
-  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.6);
 }
 
-.info-bar .score-a {
-  margin-left: auto;
-  color: #4ade80;
+.trump-display .trump-chip.lit .chip-label {
+  color: #7c2d12;
+  text-shadow: 0 1rpx 1rpx rgba(255, 255, 255, 0.3);
 }
 
-.info-bar .score-b {
-  color: #f87171;
+.trump-display .trump-chip.suit-spade .chip-label { color: #d1d5db; }
+.trump-display .trump-chip.suit-spade.lit .chip-label { color: #1f2937; }
+
+.trump-display .trump-chip.suit-heart .chip-label { color: #fca5a5; }
+.trump-display .trump-chip.suit-heart.lit .chip-label { color: #b91c1c; }
+
+.trump-display .trump-chip.suit-club .chip-label { color: #86efac; }
+.trump-display .trump-chip.suit-club.lit .chip-label { color: #14532d; }
+
+.trump-display .trump-chip.suit-diamond .chip-label { color: #93c5fd; }
+.trump-display .trump-chip.suit-diamond.lit .chip-label { color: #1e3a8a; }
+
+.trump-display .trump-chip.suit-joker .chip-label { color: #fde68a; }
+.trump-display .trump-chip.suit-joker.lit .chip-label { color: #92400e; }
+
+.trump-display .trump-chip .chip-sub {
+  font-size: 18rpx;
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: bold;
+}
+
+.trump-display .trump-chip.lit .chip-sub {
+  color: rgba(124, 45, 18, 0.7);
 }
 
 /* 第2行：牌桌区 - flex: 1 自适应 */

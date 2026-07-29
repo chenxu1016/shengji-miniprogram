@@ -66,14 +66,36 @@
   </view>
 
   <view class="game-stage" wx:if="{{gameStarted}}">
-    <!-- 顶部信息条 -->
-    <view class="info-bar">
-      <text class="info-item">主:{{trumpText}}</text>
-      <text class="info-item">级:{{levelText}}</text>
-      <text class="info-item">叫分:{{bidScoreText}}</text>
-      <text class="info-item state">{{stateText}}</text>
-      <text class="info-item score-a">我方{{teamAScore}}级</text>
-      <text class="info-item score-b">对方{{teamBScore}}级</text>
+    <!-- 左上角记分面板：双方级别 + 当前局分 + 本局打什么色 -->
+    <view class="score-panel">
+      <view class="score-row">
+        <text class="score-team mine">我方 {{scorePanel.myLevel}}级</text>
+        <text class="score-team opp">对方 {{scorePanel.oppLevel}}级</text>
+      </view>
+      <view class="score-row">
+        <text class="score-points mine">本轮 {{scorePanel.myScore}}分</text>
+        <text class="score-points opp">对方 {{scorePanel.oppScore}}分</text>
+      </view>
+      <view class="score-row trump-info">
+        <text class="trump-info-text">本局打：{{scorePanel.trumpText}}</text>
+      </view>
+    </view>
+
+    <!-- 中央亮主区：级牌数字 + 6 花色块（亮=已叫主/可反主，暗=未叫/已压） -->
+    <view class="trump-display" wx:if="{{trumpDisplayVisible}}">
+      <view class="trump-header">
+        <view class="trump-level-card">
+          <text class="trump-level-text">{{levelText}}</text>
+        </view>
+        <text class="trump-caption">{{trumpCaption}}</text>
+      </view>
+      <view class="trump-chips">
+        <view class="trump-chip {{item.lit ? 'lit' : ''}} {{item.dim ? 'dim' : ''}} {{item.suitClass}}"
+              wx:for="{{trumpChips}}" wx:key="key">
+          <text class="chip-label">{{item.label}}</text>
+          <text class="chip-sub">{{levelText}}</text>
+        </view>
+      </view>
     </view>
 
     <!-- 牌桌区：三家对手 + 中央出牌区 -->
