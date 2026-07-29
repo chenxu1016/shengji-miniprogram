@@ -64,37 +64,41 @@ export function validatePlay(
 
   // 检测牌型
   const detectedType = detectPlayType(cards, trumpSuit, level);
-  if (detectedType === PlayType.INVALID) {
-    return { valid: false, type: PlayType.INVALID, cards, trumpSuit };
-  }
 
-  // 首家出牌(无leadCards)
+  // 首家出牌(无leadCards): 牌型必须合法
   if (!leadCards || leadCards.length === 0) {
+    if (detectedType === PlayType.INVALID) {
+      return { valid: false, type: PlayType.INVALID, cards, trumpSuit };
+    }
     return { valid: true, type: detectedType, cards, trumpSuit };
   }
 
-  // 跟牌阶段: 检查牌型是否一致
-  if (detectedType !== leadType) {
-    return { valid: false, type: detectedType, cards, trumpSuit };
-  }
+  // ===== 跟牌阶段（标准升级规则：有该花色必须跟，不够/没有可垫任意牌） =====
 
-  // 检查张数一致
+  // 张数必须与首家一致
   if (cards.length !== leadCards.length) {
-    return { valid: false, type: detectedType, cards, trumpSuit };
+    return { valid: false, type: PlayType.INVALID, cards, trumpSuit };
   }
 
-  // 检查花色一致性
-  if (!areCardsSameSuit(cards, leadCards)) {
-    return { valid: false, type: detectedType, cards, trumpSuit };
+  const leadIsTrump = leadCards.every(c => c.isTrump(trumpSuit, level));
+  const leadSuit = leadCards[0].suit;
+
+  // 玩家手中属于"首家花色组"的牌（主牌组 或 某个副牌花色组）
+  const inGroup = (c: Card) => leadIsTrump
+    ? c.isTrump(trumpSuit, level)
+    : (!c.isTrump(trumpSuit, level) && c.suit === leadSuit);
+
+  const handInGroup = currentPlayer.hand.filter(inGroup).length;
+  const playedInGroup = cards.filter(inGroup).length;
+
+  // 必须尽量跟该花色组：出的组内牌数 >= min(手里组内牌数, 需出张数)
+  const required = Math.min(handInGroup, cards.length);
+  if (playedInGroup < required) {
+    return { valid: false, type: PlayType.INVALID, cards, trumpSuit }; // 有牌不跟，违规
   }
 
-  // 判断是否都能出(跟牌/压牌)
-  const canPlay = canFollowOrBeat(cards, leadCards, trumpSuit, level);
-  if (!canPlay) {
-    return { valid: false, type: detectedType, cards, trumpSuit };
-  }
-
-  return { valid: true, type: detectedType, cards, trumpSuit };
+  // 合法跟牌/垫牌（牌型不要求与首家一致——垫牌可以是任意组合）
+  return { valid: true, type: detectedType === PlayType.INVALID ? leadType! : detectedType, cards, trumpSuit };
 }
 
 /**

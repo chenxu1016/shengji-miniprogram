@@ -127,14 +127,18 @@ export function processBid(
     isFinal = true;
   }
 
-  // 检查是否3家连续过牌
-  if (bidState.bidHistory.length >= 3) {
-    const lastThree = bidState.bidHistory.slice(-3);
-    if (lastThree.every(b => b.bid === BidOption.PASS)) {
-      // 3家都过,下一家必须叫分
-      if (bid !== BidOption.PASS) {
-        isFinal = true;
+  // 检查是否 3 家连续过牌（自上次有效叫分后连续 3 个过牌即结束，最高叫分者赢）
+  if (bid === BidOption.PASS) {
+    let passesSinceLastBid = 0;
+    for (let i = newState.bidHistory.length - 1; i >= 0; i--) {
+      if (newState.bidHistory[i].bid === BidOption.PASS) {
+        passesSinceLastBid++;
+      } else {
+        break;
       }
+    }
+    if (passesSinceLastBid >= 3) {
+      isFinal = true;
     }
   }
 

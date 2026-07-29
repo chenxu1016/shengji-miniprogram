@@ -240,8 +240,21 @@ Page({
         };
       });
     }
-    var isBidding = s.state === "bidding" || s.state === "reverse";
+    var myIdx = this.data.myIndex;
+    var isBidding = s.state === "bidding";
+    var isReverse = s.state === "reverse";
     var isPlaying = s.state === "playing";
+    var myBidTurn = isBidding && s.currentBidderIndex === myIdx;
+    var myReverseTurn = isReverse && s.currentBidderIndex === myIdx;
+    // 出牌轮次：墩内无人出牌时轮到 currentTrickWinner，否则是上一家的下一位
+    var myPlayTurn = false;
+    if (isPlaying) {
+      var trick = s.currentTrick || [];
+      var expected = trick.length === 0
+        ? s.currentTrickWinner
+        : (trick[trick.length - 1].player + 1) % 4;
+      myPlayTurn = expected === myIdx;
+    }
     var trumpText = s.trumpSuit ? suitNames[s.trumpSuit] || s.trumpSuit : "无主";
     var levelText = levelNames[s.level] || s.level || "2";
     var bidScoreText = (s.bidScore > 0 ? s.bidScore + "分" : "-");
@@ -253,17 +266,31 @@ Page({
       levelText: levelText,
       bidScoreText: bidScoreText,
       stateText: this._getStateText(s.state),
-      showBidActions: isBidding,
-      showPlayActions: isPlaying,
+      showBidActions: myBidTurn,
+      showReverseActions: myReverseTurn,
+      showPlayActions: isPlaying && myPlayTurn,
+      myPlayTurn: myPlayTurn,
       waitingText: this._getWaitingText(s),
       currentPlayerIndex: s.currentBidderIndex,
       p1Count: s.players&&s.players[1]?s.players[1].hand.length:25,
       p2Count: s.players&&s.players[2]?s.players[2].hand.length:25,
       p3Count: s.players&&s.players[3]?s.players[3].hand.length:25,
-      teamAScore: s.teamLevels?s.teamLevels[0]:0,
-      teamBScore: s.teamLevels?s.teamLevels[1]:0
+      oppTop: this._oppInfo(s, (myIdx + 2) % 4),
+      oppLeft: this._oppInfo(s, (myIdx + 3) % 4),
+      oppRight: this._oppInfo(s, (myIdx + 1) % 4),
+      teamAScore: s.teamLevels?s.teamLevels[myIdx % 2]:0,
+      teamBScore: s.teamLevels?s.teamLevels[1 - (myIdx % 2)]:0
     });
     this._updateTrickArea(s);
+  },
+
+  _oppInfo: function(s, absIdx) {
+    var rp = this.data.roomPlayers[absIdx];
+    var count = (s.players && s.players[absIdx]) ? s.players[absIdx].hand.length : 25;
+    return {
+      initial: rp ? (rp.initial || getInitial(rp.nickname || rp.name)) : '?',
+      count: count
+    };
   },
 
   _updateTrickArea: function(s) {
@@ -285,13 +312,22 @@ Page({
 
   _getWaitingText: function(s) {
     if (s.state === "playing") {
-      if (s.currentTrick && s.currentTrick.length > 0 && s.currentTrick[s.currentTrick.length-1].player === this.data.myIndex) {
-        return "等待您出牌";
-      }
-      return "等待对手出牌...";
+      var trick = s.currentTrick || [];
+      var expected = trick.length === 0
+        ? s.currentTrickWinner
+        : (trick[trick.length - 1].player + 1) % 4;
+      if (expected === this.data.myIndex) return "轮到您出牌";
+      return "等待玩家" + (expected + 1) + "出牌...";
     }
-    if (s.state === "bidding") return "等待叫分...";
-    if (s.state === "reverse") return "等待反主...";
+    if (s.state === "bidding") {
+      if (s.currentBidderIndex === this.data.myIndex) return "轮到您叫分";
+      return "等待玩家" + (s.currentBidderIndex + 1) + "叫分...";
+    }
+    if (s.state === "reverse") {
+      if (s.currentBidderIndex === this.data.myIndex) return "是否反主？";
+      return "等待玩家" + (s.currentBidderIndex + 1) + "决定反主...";
+    }
+    if (s.state === "scoring" || s.state === "round_end") return "本轮结束";
     return "等待中...";
   },
 
@@ -323,9 +359,25 @@ Page({
     });
   },
 
-  onBidOne: function() { if(wsClient&&this.session) wsClient.send({type:"bid",bid:"1"}); },
-  onBidTwo: function() { if(wsClient&&this.session) wsClient.send({type:"bid",bid:"2"}); },
-  onBidThree: function() { if(wsClient&&this.session) wsClient.send({type:"bid",bid:"3"}); },
+  // 数字叫分必须带主花色（后端强制校验）
+  _bidWithSuit: function(bid) {
+    if (!wsClient || !this.session) return;
+    wx.showActionSheet({
+      itemList: ["黑桃", "红桃", "梅花", "方块"],
+      success: function(res) {
+        var suits = ["spade", "heart", "club", "diamond"];
+        wsClient.send({ type: "bid", bid: bid, suit: suits[res.tapIndex] });
+      }
+    });
+  },
+  onBidOne: function() { this._bidWithSuit("1"); },
+  onBidTwo: function() { this._bidWithSuit("2"); },
+  onBidThree: function() { this._bidWithSuit("3"); },
+
+  onSkipReverse: function() {
+    if (!wsClient || !this.session) return;
+    wsClient.send({ type: "skipReverse" });
+  },
 
   onCardTap: function(e) {
     var idx = parseInt(e.currentTarget.dataset.index);

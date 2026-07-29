@@ -161,6 +161,11 @@ export function makeBid(
   session.log.push('玩家' + (playerIndex + 1) + ' 叫' + (bid === BidOption.PASS ? '过' : bid + '分') + (suit ? getSuitName(suit) : ''));
 
   if (bidResult.isFinal) {
+    if (session.bidState.highestBidder < 0) {
+      // 四人全部过牌、无人叫分 → 重新发牌（保持同一 session 引用）
+      redealSession(session);
+      return { success: true };
+    }
     session.bidScore = bid === BidOption.PASS ? 0 : parseInt(bid);
     session.finalBidderIndex = bidResult.finalBidder ?? session.bidState.highestBidder;
     session.finalSuit = bidResult.finalSuit ?? session.bidState.lastSuit;
@@ -288,6 +293,30 @@ export function attemptReverse(
   return { success: true };
 }
 
+/**
+ * 跳过反主：当前反主顺位玩家选择不反主。
+ * 所有非庄家玩家都跳过后，进入出牌阶段。
+ */
+export function skipReverse(
+  session: GameSession,
+  playerIndex: number,
+): { success: boolean; error?: string } {
+  if (session.state !== GameState.REVERSE) {
+    return { success: false, error: '当前不在反主阶段' };
+  }
+  if (playerIndex !== session.currentBidderIndex) {
+    return { success: false, error: '不是玩家' + (playerIndex + 1) + '的反主回合' };
+  }
+
+  session.log.push('玩家' + (playerIndex + 1) + ' 不反主');
+  session.currentBidderIndex = (playerIndex + 1) % 4;
+  if (session.currentBidderIndex === session.finalBidderIndex) {
+    session.reverseActive = false;
+    enterPlayingPhase(session);
+  }
+  return { success: true };
+}
+
 // ============================================
 // 出牌阶段
 // ============================================
@@ -356,7 +385,9 @@ function completeTrick(session: GameSession) {
   }
 
   const leadType = session.leadType!;
-  const winner = determineTrickWinner(lastCards, leadCards, session);
+  const winnerTrickIdx = determineTrickWinner(lastCards, leadCards, session);
+  // determineTrickWinner 返回的是墩内序号，需映射回真实玩家号
+  const winner = session.currentTrick[winnerTrickIdx].player;
 
   session.tricks.push({
     winner,
@@ -371,7 +402,8 @@ function completeTrick(session: GameSession) {
 
   session.log.push('玩家' + (winner + 1) + ' 赢得此墩(' + trickPoints + '分)');
 
-  if (session.tricks.length >= 13) {
+  // 所有玩家手牌出完才结束本轮（2副牌每人25张，墩数不固定）
+  if (session.players.every(p => p.hand.length === 0)) {
     endRound(session);
   }
 }
@@ -399,23 +431,23 @@ function getCardStrength(card: Card, session: GameSession): number {
   const isTrump = card.isTrump(session.trumpSuit, session.level);
   const leadSuit = session.leadCards?.[0]?.suit;
 
-  if (isTrump && leadSuit && card.suit !== leadSuit) {
-    return 1000 + getBaseStrength(card);
+  // 主牌 > 跟牌花色 > 其余垫牌
+  if (isTrump) {
+    return 1000 + getBaseStrength(card, session.level);
   }
-  if (leadSuit && card.suit === leadSuit && !isTrump) {
-    return 500 + getBaseStrength(card);
+  if (leadSuit && card.suit === leadSuit) {
+    return 500 + getBaseStrength(card, session.level);
   }
-  if (isTrump && leadSuit && card.suit === leadSuit) {
-    return 800 + getBaseStrength(card);
-  }
-  return getBaseStrength(card);
+  return getBaseStrength(card, session.level);
 }
 
-function getBaseStrength(card: Card): number {
+function getBaseStrength(card: Card, level?: CardValue): number {
   if (card.value === CardValue.BIG_JOKER) return 200;
   if (card.value === CardValue.SMALL_JOKER) return 199;
   if (card.value === CardValue.FOUR) return 190;
+  if (level && card.value === level) return 185; // 级牌高于普通牌
 
+  // 从强到弱：A 最强
   const order: CardValue[] = [
     CardValue.ACE, CardValue.KING, CardValue.QUEEN,
     CardValue.JACK, CardValue.TEN, CardValue.NINE,
@@ -423,7 +455,7 @@ function getBaseStrength(card: Card): number {
     CardValue.FIVE, CardValue.THREE, CardValue.TWO,
   ];
   const idx = order.indexOf(card.value);
-  return idx >= 0 ? idx * 10 : 0;
+  return idx >= 0 ? (order.length - idx) * 10 : 0;
 }
 
 // ============================================
@@ -542,6 +574,40 @@ function enterNewRound(session: GameSession) {
 
   session.state = GameState.BIDDING;
   session.log.push('--- 新一轮开始,庄家: 玩家' + (session.finalBidderIndex + 1) + ' ---');
+}
+
+function redealSession(session: GameSession) {
+  const numDecks = session.config.numDecks ?? 2;
+  const deck = new Deck(numDecks);
+  deck.shuffle();
+  session.deck = deck;
+
+  for (let i = 0; i < 4; i++) {
+    session.players[i].hand = [];
+  }
+
+  const perPlayer = numDecks === 2 ? 25 : 13;
+  for (let i = 0; i < 4; i++) {
+    for (let j = 0; j < perPlayer; j++) {
+      const c = deck.deal(1)[0];
+      if (c) session.players[i].addCard(c);
+    }
+  }
+
+  const firstBidderIndex = Math.floor(Math.random() * 4);
+  session.firstBidderIndex = firstBidderIndex;
+  session.currentBidderIndex = firstBidderIndex;
+  session.bidState = createBidState(firstBidderIndex);
+  session.trumpSuit = null;
+  session.tricks = [];
+  session.currentTrick = [];
+  session.leadCards = null;
+  session.leadType = null;
+  session.reverseActive = false;
+  session.reversePairUsed = false;
+  session.roundResult = null;
+  session.state = GameState.BIDDING;
+  session.log.push('四人全部过牌，重新发牌');
 }
 
 function enterPlayingPhase(session: GameSession) {

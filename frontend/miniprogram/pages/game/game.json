@@ -1,1 +1,5 @@
-{ "usingComponents": {} }
+{
+  "usingComponents": {},
+  "pageOrientation": "landscape",
+  "disableScroll": true
+}

@@ -60,10 +60,72 @@
   </view>
 
   <view class="game-stage" wx:if="{{gameStarted}}">
-    <view class="score-panel">
-      <view class="score-row"><text class="score-label">我方(东南)</text><text class="score-value team-a">{{teamAScore}}级</text></view>
-      <view class="score-row"><text class="score-label">对方(西北)</text><text class="score-value team-b">{{teamBScore}}级</text></view>
-      <view class="score-divider"></view>
+    <!-- 顶部信息条 -->
+    <view class="info-bar">
+      <text class="info-item">主:{{trumpText}}</text>
+      <text class="info-item">级:{{levelText}}</text>
+      <text class="info-item">叫分:{{bidScoreText}}</text>
+      <text class="info-item state">{{stateText}}</text>
+      <text class="info-item score-a">我方{{teamAScore}}级</text>
+      <text class="info-item score-b">对方{{teamBScore}}级</text>
     </view>
+
+    <!-- 牌桌区：三家对手 + 中央出牌区 -->
+    <view class="table-area">
+      <!-- 上家(对家) / 左家 / 右家：refreshUI 里按 myIndex 算好 -->
+      <view class="opp opp-top">
+        <view class="opp-avatar">{{oppTop.initial}}</view>
+        <text class="opp-count">{{oppTop.count}}张</text>
+      </view>
+      <view class="opp opp-left">
+        <view class="opp-avatar">{{oppLeft.initial}}</view>
+        <text class="opp-count">{{oppLeft.count}}张</text>
+      </view>
+      <view class="opp opp-right">
+        <view class="opp-avatar">{{oppRight.initial}}</view>
+        <text class="opp-count">{{oppRight.count}}张</text>
+      </view>
+
+      <!-- 中央出牌区（按绝对座位 0-3 显示） -->
+      <view class="trick-area">
+        <view class="trick-slot" wx:for="{{trickCards}}" wx:key="index" wx:if="{{item}}">
+          <text class="trick-card {{item.red?'red':''}}">{{item.display}}</text>
+        </view>
+        <text class="waiting-hint" wx:if="{{!hasPlayedCards}}">{{waitingText}}</text>
+      </view>
+    </view>
+
+    <!-- 操作区 -->
+    <view class="action-bar">
+      <!-- 叫分 -->
+      <block wx:if="{{showBidActions}}">
+        <button class="op-btn" bindtap="onBidPass">不叫</button>
+        <button class="op-btn" bindtap="onBidZero">亮主</button>
+        <button class="op-btn" bindtap="onBidOne">1分</button>
+        <button class="op-btn" bindtap="onBidTwo">2分</button>
+        <button class="op-btn" bindtap="onBidThree">3分</button>
+      </block>
+      <!-- 反主 -->
+      <block wx:if="{{showReverseActions}}">
+        <button class="op-btn primary" bindtap="onSkipReverse">不反主</button>
+      </block>
+      <!-- 出牌 -->
+      <block wx:if="{{showPlayActions}}">
+        <button class="op-btn primary" bindtap="onPlayConfirm">出牌</button>
+        <button class="op-btn" bindtap="onClearSelection">重选</button>
+      </block>
+      <text class="turn-hint" wx:if="{{!showBidActions && !showReverseActions && !showPlayActions}}">{{waitingText}}</text>
+    </view>
+
+    <!-- 手牌区 -->
+    <scroll-view class="hand-area" scroll-x="true">
+      <view class="hand-cards">
+        <view class="hand-card {{item.selected?'selected':''}} {{item.red?'red':''}}"
+              wx:for="{{myHand}}" wx:key="index"
+              data-index="{{index}}" bindtap="onCardTap">
+          <text>{{item.display}}</text>
+        </view>
+      </view>
+    </scroll-view>
   </view>
 </view>

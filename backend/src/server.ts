@@ -1,7 +1,8 @@
 ﻿import WebSocket from 'ws';
-import { createGame, makeBid, playCards, attemptReverse } from './rules/gameEngine';
+import { createGame, makeBid, playCards, attemptReverse, skipReverse } from './rules/gameEngine';
 import { BidOption } from './rules/bidding';
 import { GameState, RoundResult } from './rules/scoring';
+import { Card } from './models/card';
 
 // ============================================
 // 绫诲瀷瀹氫箟
@@ -256,6 +257,26 @@ function handleReverse(ws: WebSocket, option: any): void {
   });
 }
 
+function handleSkipReverse(ws: WebSocket): void {
+  const player = playerRooms.get(ws);
+  if (!player) return;
+
+  const room = rooms.get(player.roomId);
+  if (!room) return;
+
+  const result = skipReverse(room.session, player.playerIndex);
+  if (!result.success) {
+    sendToWs(ws, { type: 'error', message: result.error });
+    return;
+  }
+
+  broadcastRoom(room, {
+    type: 'reverseResult',
+    success: true,
+    session: serializeSession(room.session),
+  });
+}
+
 function handleRoundEnd(ws: WebSocket): void {
   const player = playerRooms.get(ws);
   if (!player) return;
@@ -276,7 +297,32 @@ function handlePlayCards(ws: WebSocket, cards: any[]): void {
   const room = rooms.get(player.roomId);
   if (!room) return;
 
-  const result = playCards(room.session, player.playerIndex, cards);
+  if (!Array.isArray(cards) || cards.length === 0) {
+    sendToWs(ws, { type: 'error', message: '出牌数据无效' });
+    return;
+  }
+
+  // 客户端传来的是纯 JSON {suit,value}，必须从玩家真实手牌中匹配出 Card 实例
+  // （既保证 Card 方法可用，也防止伪造手里没有的牌）
+  const enginePlayer = room.session?.players?.[player.playerIndex];
+  if (!enginePlayer) {
+    sendToWs(ws, { type: 'error', message: '游戏尚未开始' });
+    return;
+  }
+  const used = new Set<number>();
+  const realCards: Card[] = [];
+  for (const c of cards) {
+    const idx = enginePlayer.hand.findIndex((h: Card, i: number) =>
+      !used.has(i) && h.suit === c.suit && h.value === c.value);
+    if (idx === -1) {
+      sendToWs(ws, { type: 'error', message: '出的牌不在手牌中' });
+      return;
+    }
+    used.add(idx);
+    realCards.push(enginePlayer.hand[idx]);
+  }
+
+  const result = playCards(room.session, player.playerIndex, realCards);
   if (!result.success) {
     sendToWs(ws, { type: 'error', message: result.error });
     return;
@@ -326,6 +372,9 @@ function handleMessage(ws: WebSocket, data: string): void {
         handlePlayCards(ws, msg.cards);
         break;
 
+      case 'skipReverse':
+        handleSkipReverse(ws);
+        break;
       case 'reverse':
         handleReverse(ws, msg.option);
         break;
@@ -428,6 +477,7 @@ function serializeSession(session: any): any {
     level: session.level,
     dealerIndex: session.dealerIndex,
     currentBidderIndex: session.currentBidderIndex,
+    currentTrickWinner: session.currentTrickWinner,
     bidScore: session.bidScore,
     finalBidderIndex: session.finalBidderIndex,
     finalSuit: session.finalSuit,
