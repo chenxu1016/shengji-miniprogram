@@ -190,26 +190,26 @@ page {
   box-shadow: 0 4rpx 12rpx rgba(245,158,11,0.4);
 }
 
-/* ================= 游戏进行阶段（核心布局：5行 flex column） ================= */
+/* ================= 游戏进行阶段（绝对定位：手牌永远固定在底部） ================= */
 .game-stage {
   position: relative;
   z-index: 1;
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;          /* 关键：允许子项收缩 */
   overflow: hidden;
 }
 
 /* 第1行：顶部条 - 固定 76rpx，左记分面板 + 右亮主区横条 */
 .top-bar {
-  flex: 0 0 76rpx;
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 76rpx;
   display: flex;
   align-items: center;
   gap: 8rpx;
   padding: 4rpx 8rpx;
   background: rgba(0,0,0,0.5);
   overflow: hidden;
+  z-index: 5;
 }
 
 /* 左上角记分面板 - 改为内联在 top-bar */
@@ -367,11 +367,13 @@ page {
   white-space: nowrap;
 }
 
-/* 第2行：牌桌区 - flex: 1 自适应 */
+/* 第2行：牌桌区 - 顶部条下方到底部 220rpx 之间（给操作栏 80 + 手牌 140 留位置） */
 .table-area {
-  position: relative;
-  flex: 1 1 0;
-  min-height: 180rpx;     /* 至少 180rpx 保证对手头像不被压扁 */
+  position: absolute;
+  top: 76rpx;
+  left: 0;
+  right: 0;
+  bottom: 220rpx;
   overflow: hidden;
 }
 
@@ -637,9 +639,13 @@ page {
   }
 }
 
-/* 第3行：操作栏 - 固定 80rpx */
+/* 第3行：操作栏 - 固定 80rpx，绝对定位在手牌上方 */
 .action-bar {
-  flex: 0 0 80rpx;
+  position: absolute;
+  bottom: 140rpx;
+  left: 0;
+  right: 0;
+  height: 80rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -648,6 +654,7 @@ page {
   background: rgba(0,0,0,0.4);
   flex-wrap: nowrap;
   overflow: hidden;
+  z-index: 5;
 }
 
 .op-btn {
@@ -676,9 +683,12 @@ page {
   text-align: center;
 }
 
-/* 第4行：手牌 - 显式 height 140rpx（普通 view 替代 scroll-view，避免被 flex 父容器压成 0 高度） */
+/* 第4行：手牌 - 绝对定位贴底 140rpx（永远可见，不被 flex 计算挤掉） */
 .hand-area {
-  flex: 0 0 140rpx;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
   height: 140rpx;
   width: 100%;
   box-sizing: border-box;
@@ -689,6 +699,7 @@ page {
   overflow-y: hidden;
   white-space: nowrap;
   -webkit-overflow-scrolling: touch;
+  z-index: 6;
 }
 
 .hand-cards {
