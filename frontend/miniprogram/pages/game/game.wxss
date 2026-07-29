@@ -463,30 +463,139 @@ page {
   align-items: center;
   justify-content: center;
   gap: 10rpx;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.55);
   z-index: 15;
   border-radius: 8rpx;
 }
 
 .dealing-overlay .dealing-spinner {
-  width: 36rpx;
-  height: 36rpx;
-  border: 3rpx solid rgba(255,255,255,0.2);
+  width: 56rpx;
+  height: 56rpx;
+  border: 5rpx solid rgba(255,255,255,0.2);
   border-top-color: #fbbf24;
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  animation: spin 0.6s linear infinite;
 }
 
 .dealing-overlay .dealing-text {
-  font-size: 22rpx;
+  font-size: 28rpx;
   color: #fbbf24;
   font-weight: bold;
   text-shadow: 0 1rpx 2rpx rgba(0,0,0,0.6);
 }
 
 .dealing-overlay .dealing-count {
-  font-size: 18rpx;
+  font-size: 20rpx;
   color: rgba(255,255,255,0.7);
+  background: rgba(0,0,0,0.4);
+  padding: 2rpx 14rpx;
+  border-radius: 16rpx;
+}
+
+/* ===== 反牌倒计时遮罩（发完牌后）===== */
+.reverse-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 18;
+  border-radius: 8rpx;
+}
+
+.reverse-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14rpx;
+  padding: 28rpx 36rpx;
+  background: linear-gradient(180deg, #1e3a5f 0%, #0f1f33 100%);
+  border: 3rpx solid #fbbf24;
+  border-radius: 20rpx;
+  box-shadow: 0 6rpx 20rpx rgba(251, 191, 36, 0.4), inset 0 0 12rpx rgba(251, 191, 36, 0.15);
+  min-width: 360rpx;
+}
+
+.reverse-card .reverse-title {
+  font-size: 30rpx;
+  color: #fbbf24;
+  font-weight: bold;
+  letter-spacing: 4rpx;
+  text-shadow: 0 2rpx 4rpx rgba(0,0,0,0.5);
+}
+
+.reverse-card .reverse-clock {
+  position: relative;
+  width: 140rpx;
+  height: 140rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.reverse-card .reverse-ring {
+  width: 140rpx;
+  height: 140rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #fbbf24, #d97706);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 24rpx rgba(251, 191, 36, 0.6);
+  animation: ringPulse 1.6s ease-in-out infinite;
+}
+
+.reverse-card .reverse-ring-num {
+  width: 116rpx;
+  height: 116rpx;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #1e3a5f, #0a1424);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 56rpx;
+  font-weight: bold;
+  color: #fbbf24;
+  text-shadow: 0 0 12rpx rgba(251, 191, 36, 0.6);
+  font-family: 'Courier New', monospace;
+}
+
+@keyframes ringPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.reverse-card .reverse-hint {
+  font-size: 22rpx;
+  color: rgba(255,255,255,0.9);
+  text-align: center;
+  line-height: 1.4;
+  margin-top: 4rpx;
+}
+
+.reverse-card .reverse-tips {
+  font-size: 18rpx;
+  color: rgba(251, 191, 36, 0.7);
+  text-align: center;
+  background: rgba(0,0,0,0.3);
+  padding: 4rpx 14rpx;
+  border-radius: 14rpx;
+  margin-top: 2rpx;
+}
+
+.reverse-card .reverse-skip-btn {
+  margin: 8rpx 0 0 0;
+  padding: 0 30rpx;
+  height: 56rpx;
+  line-height: 56rpx;
+  font-size: 24rpx;
+  border-radius: 28rpx;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  font-weight: bold;
+  border: none;
+  box-shadow: 0 3rpx 8rpx rgba(245,158,11,0.4);
 }
 
 /* 翻牌动画：每张新牌从下方飞入 + 翻面 */

@@ -62,7 +62,11 @@ Page({
     // 发牌动画
     dealing: false,
     dealingText: "发牌中...",
-    dealingDone: 0
+    dealingDone: 0,
+    // 反牌倒计时（发完牌后给其他人 15s 考虑反主）
+    reverseCountdown: 0,
+    reverseCountdownActive: false,
+    reverseCountdownTotal: 15
   },
 
   onLoad: function(options) {
@@ -158,8 +162,8 @@ Page({
 
     // 关键修复：gameStart 消息在本页 onLoad 之前就已到达（index 页收到后才跳转过来），
     // 本页注册处理器时早已错过。index 页跳转前把 session 存进了 storage，这里直接采用。
-    // 但如果是跳页中途触发的 gameStart（不带 dealing 动画），直接刷新即可；
-    // 如果是本页 onLoad 触发的（index 跳转前 waitDeal=true），发牌动画由 index 端启动。
+    // ★ 关键：采纳 session 时必须先播发牌动画（如果本会话还没播过），再让 refreshUI 接管。
+    // 防止重复触发：用 storage 记录 "已播过发牌的 sessionId"，同一会话只在首次进入时播放。
     var pendingSession = wx.getStorageSync("gameSession");
     if (pendingSession) {
       try {
@@ -170,11 +174,37 @@ Page({
           this.setData({
             gameStarted: true,
             allReady: false,
-            showBidActions: sess.state === "bidding" || sess.state === "reverse",
-            showPlayActions: sess.state === "playing",
-            waitingText: sess.state === "playing" ? "" : "等待叫分..."
+            showBidActions: false,  // 先不显示叫分按钮，等发牌+反牌倒计时结束
+            showPlayActions: sess.state === "playing" && false,  // 出牌由 refreshUI 决定
+            waitingText: "准备发牌...",
+            dealing: false,
+            reverseCountdownActive: false
           });
-          this.refreshUI();
+
+          // 决定是否播发牌动画：本会话首次进入且在叫分/反主/出牌阶段（牌已发）才播
+          var alreadyShownKey = "dealingShown_" + (sess.id || roomId);
+          var alreadyShown = wx.getStorageSync(alreadyShownKey);
+          if (!alreadyShown && sess.players && sess.players[this.data.myIndex]
+              && sess.players[this.data.myIndex].hand && sess.players[this.data.myIndex].hand.length > 0) {
+            console.log("[Game] 首次进入会话，播放发牌动画 + 15s反牌倒计时");
+            wx.setStorageSync(alreadyShownKey, "1");
+            this.setData({
+              dealing: true,
+              dealingText: "正在发牌...",
+              dealingDone: 0,
+              myHand: [],
+              myHandCount: 0,
+              p1Count: 0, p2Count: 0, p3Count: 0,
+              trickCards: [null, null, null, null],
+              hasPlayedCards: false
+            });
+            // 200ms 后启动动画（等首屏渲染完成）
+            setTimeout(function() { self._animateDeal(sess, true); }, 200);
+          } else {
+            // 已有发牌动画的痕迹（再次进入/重连），直接走 refreshUI
+            console.log("[Game] 本会话发牌动画已播过，直接刷新UI");
+            this.refreshUI();
+          }
         }
       } catch(e) { console.error("[Game] Failed to parse pending session", e); }
     }
@@ -245,31 +275,44 @@ Page({
     console.log("[Game] gameStart", msg);
     this.session = msg.session;
     wx.setStorageSync("gameSession", JSON.stringify(msg.session));
+    // 记录"已播过发牌动画"，避免 onLoad 采纳 session 时再播一遍
+    var alreadyShownKey = "dealingShown_" + (msg.session.id || msg.room && msg.room.id || this.data.roomId);
+    wx.setStorageSync(alreadyShownKey, "1");
+
     this.setData({
       gameStarted: true,
       allReady: false,
-      showBidActions: false,         // 发牌阶段还没到叫分
+      showBidActions: false,
       showPlayActions: false,
-      waitingText: "等待发牌...",
-      dealing: true,                 // 显示发牌遮罩
-      dealingText: "发牌中...",
-      dealingDone: 0
+      waitingText: "准备发牌...",
+      dealing: true,
+      dealingText: "正在发牌...",
+      dealingDone: 0,
+      myHand: [],
+      myHandCount: 0,
+      p1Count: 0, p2Count: 0, p3Count: 0,
+      trickCards: [null, null, null, null],
+      hasPlayedCards: false,
+      reverseCountdownActive: false
     });
-    this._animateDeal(msg.session);
+    var self = this;
+    setTimeout(function() { self._animateDeal(msg.session, false); }, 200);
   },
 
-  // 发牌动画：逐张把牌从 0 翻到 25，每张 50ms 错开
-  // 同步把 4 家手牌数从 0 涨到 25
-  _animateDeal: function(s) {
+  // 发牌动画：逐张把牌从我方手牌区加入，每张 200ms 错开
+  // 同步把 4 家手牌数从 0 涨到 total
+  // 全部发完后启动 15 秒"反牌倒计时"，给非庄家考虑反主的机会
+  // fromAdoption: true=来自 onLoad 采纳（标记已发牌完成，避免重入时再播）
+  _animateDeal: function(s, fromAdoption) {
     var me = s.players ? s.players[this.data.myIndex] : null;
     var fullHand = (me && me.hand) ? me.hand.map(function(c) {
       return { card: c, display: c.display || c.toString(), selected: false, playable: true, red: c.suit === "diamond" || c.suit === "heart" };
     }) : [];
     var total = fullHand.length || 25;
     var self = this;
-    var stepMs = 50;  // 每张牌 50ms，25 张 = 1.25s
+    var stepMs = 200;  // 每张牌 200ms，25 张 = 5s，明显可见
 
-    // 起始：清空手牌
+    // 起始：清空手牌（防重入）
     this.setData({
       myHand: [],
       myHandCount: 0,
@@ -277,29 +320,17 @@ Page({
       dealingDone: 0
     });
 
-    // 预生成"打乱"的 4 家发牌顺序（每家都有 total 张，4 家轮发）
-    // 但为了视觉一致，按 4 家轮流各发 1 张
-    var timeline = [];  // [{handIdx, oppCount}]
-    for (var i = 0; i < total; i++) {
-      // 我方发的张数
-      var oppCount = i;  // 累计已发给对手的总张数（每家 1 张，4 家共 4 张）
-      // 但视觉上更直观：4 家同步增长到 total
-      timeline.push({
-        myCount: i + 1,
-        oppPerPlayer: i + 1
-      });
-    }
-
     var k = 0;
     function next() {
       if (k >= total) {
-        // 结束：去掉发牌遮罩，进入叫分阶段
+        // 全部发完：启动 15 秒反牌倒计时
         self.setData({
           dealing: false,
           dealingDone: total,
-          showBidActions: (s.currentBidderIndex === self.data.myIndex),
-          waitingText: (s.currentBidderIndex === self.data.myIndex) ? "轮到您叫分" : ("等待玩家" + (s.currentBidderIndex + 1) + "叫分...")
+          dealingText: "发牌完成"
         });
+        // 短暂停顿 400ms 让用户看到"发牌完成"提示
+        setTimeout(function() { self._startReverseCountdown(s); }, 400);
         return;
       }
       // 把第 k 张牌加到 myHand，并附 dealing-in class 触发翻牌动画
@@ -311,12 +342,60 @@ Page({
         p1Count: k + 1,
         p2Count: k + 1,
         p3Count: k + 1,
-        dealingDone: k + 1
+        dealingDone: k + 1,
+        dealingText: "发牌中 " + (k + 1) + "/" + total
       });
       k++;
       setTimeout(next, stepMs);
     }
-    setTimeout(next, 200);  // 初始 200ms 缓冲
+    setTimeout(next, 300);  // 初始 300ms 缓冲（让 setData 生效）
+  },
+
+  // 启动 15 秒"反牌倒计时"
+  _startReverseCountdown: function(s) {
+    var self = this;
+    var total = this.data.reverseCountdownTotal || 15;
+    console.log("[Game] 启动反牌倒计时 " + total + "s");
+    this.setData({
+      reverseCountdownActive: true,
+      reverseCountdown: total,
+      showBidActions: false,
+      showReverseActions: false,
+      waitingText: "请看牌，剩余 " + total + " 秒可反主"
+    });
+    var _tick = function() {
+      if (!self.data.reverseCountdownActive) return;
+      var n = self.data.reverseCountdown - 1;
+      if (n <= 0) {
+        // 倒计时结束：进入叫分阶段
+        self.setData({
+          reverseCountdown: 0,
+          reverseCountdownActive: false,
+          waitingText: (s.currentBidderIndex === self.data.myIndex) ? "轮到您叫分" : ("等待玩家" + (s.currentBidderIndex + 1) + "叫分..."),
+          showBidActions: (s.currentBidderIndex === self.data.myIndex)
+        });
+        return;
+      }
+      self.setData({
+        reverseCountdown: n,
+        waitingText: "请看牌，剩余 " + n + " 秒可反主"
+      });
+      setTimeout(_tick, 1000);
+    };
+    setTimeout(_tick, 1000);
+  },
+
+  // 用户点击"开始叫分"提前结束反牌倒计时
+  onSkipReverseCountdown: function() {
+    if (!this.data.reverseCountdownActive) return;
+    this.setData({ reverseCountdown: 0, reverseCountdownActive: false });
+    var s = this.session;
+    if (!s) return;
+    this.setData({
+      waitingText: (s.currentBidderIndex === this.data.myIndex) ? "轮到您叫分" : ("等待玩家" + (s.currentBidderIndex + 1) + "叫分..."),
+      showBidActions: (s.currentBidderIndex === this.data.myIndex)
+    });
+    wx.showToast({ title: "进入叫分阶段", icon: "none", duration: 1200 });
   },
 
   _onBidResult: function(msg) {

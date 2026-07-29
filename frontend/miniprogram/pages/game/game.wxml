@@ -124,6 +124,21 @@
         <text class="dealing-text">{{dealingText}}</text>
         <text class="dealing-count">已发 {{dealingDone}}/25</text>
       </view>
+
+      <!-- 反牌倒计时遮罩：发牌完成后接管，给非庄家 15s 考虑反主 -->
+      <view class="reverse-overlay" wx:if="{{reverseCountdownActive}}">
+        <view class="reverse-card">
+          <view class="reverse-title">反牌倒计时</view>
+          <view class="reverse-clock">
+            <view class="reverse-ring">
+              <view class="reverse-ring-num">{{reverseCountdown}}</view>
+            </view>
+          </view>
+          <view class="reverse-hint">其他玩家有 {{reverseCountdown}} 秒时间考虑是否反主</view>
+          <view class="reverse-tips">提示：可以用"无主+对子"等组合反主</view>
+          <button class="reverse-skip-btn" bindtap="onSkipReverseCountdown">开始叫分 →</button>
+        </view>
+      </view>
     </view>
 
     <!-- 操作区 -->
