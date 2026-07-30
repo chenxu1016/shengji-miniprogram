@@ -341,6 +341,18 @@ page {
   background: linear-gradient(180deg, #fde68a, #fbbf24);
 }
 
+/* 可亮/可反主花色：持牌即“亮起”（金色呼吸光晕），与 dim 形成对比，提示玩家可点 */
+.trump-display .trump-chip.available {
+  border-color: #fbbf24;
+  background: linear-gradient(180deg, #3a2f10, #2a2110);
+  box-shadow: 0 0 8rpx rgba(251, 191, 36, 0.75), inset 0 0 4rpx rgba(251, 191, 36, 0.4);
+  animation: chipBreath 1.6s ease-in-out infinite;
+}
+
+.trump-display .trump-chip.available .chip-label {
+  color: #fde68a;
+}
+
 @keyframes chipBreath {
   0%, 100% { box-shadow: 0 0 6rpx rgba(251, 191, 36, 0.4); }
   50% { box-shadow: 0 0 14rpx rgba(251, 191, 36, 0.9); }
@@ -556,31 +568,32 @@ page {
   z-index: 2;
 }
 
-/* 发牌遮罩 - 覆盖牌桌区中央，挡住对手头像，配 spinner */
+/* 发牌遮罩 - 顶部条状横幅，不遮挡牌桌与发牌过程 */
 .dealing-overlay {
   position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: 0; left: 0; right: 0;
+  height: 72rpx;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 10rpx;
-  background: rgba(0, 0, 0, 0.55);
+  gap: 14rpx;
+  background: rgba(0, 0, 0, 0.62);
   z-index: 15;
-  border-radius: 8rpx;
+  border-bottom: 1rpx solid rgba(251, 191, 36, 0.4);
 }
 
 .dealing-overlay .dealing-spinner {
-  width: 56rpx;
-  height: 56rpx;
-  border: 5rpx solid rgba(255,255,255,0.2);
+  width: 36rpx;
+  height: 36rpx;
+  border: 4rpx solid rgba(255,255,255,0.2);
   border-top-color: #fbbf24;
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
 }
 
 .dealing-overlay .dealing-text {
-  font-size: 28rpx;
+  font-size: 26rpx;
   color: #fbbf24;
   font-weight: bold;
   text-shadow: 0 1rpx 2rpx rgba(0,0,0,0.6);

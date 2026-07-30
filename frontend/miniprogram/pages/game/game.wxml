@@ -86,7 +86,7 @@
       <!-- 顶部右侧：6 chip 横排 + caption。chip 可点击亮主叫分 -->
       <view class="trump-display" wx:if="{{trumpDisplayVisible}}">
         <view class="trump-chips">
-          <view class="trump-chip {{item.lit ? 'lit' : ''}} {{item.dim ? 'dim' : ''}} {{item.suitClass}} {{item.clickable ? 'clickable' : ''}}"
+          <view class="trump-chip {{item.lit ? 'lit' : ''}} {{item.available ? 'available' : ''}} {{item.dim ? 'dim' : ''}} {{item.suitClass}} {{item.clickable ? 'clickable' : ''}}"
                 wx:for="{{trumpChips}}" wx:key="key"
                 data-suit="{{item.key}}" data-bid="0"
                 bindtap="onTrumpChipTap">

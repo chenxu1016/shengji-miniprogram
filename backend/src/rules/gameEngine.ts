@@ -134,21 +134,41 @@ export function makeBid(
   if (session.state !== GameState.BIDDING) {
     return { success: false, error: '当前不在叫分阶段' };
   }
-  if (playerIndex !== session.currentBidderIndex) {
+  // 亮主(0分)不限制叫分回合：只要手里有“对应王 + 同色级牌”，任何玩家都可在叫分阶段随时亮主
+  // （升级规则：谁持有王+级牌谁就能亮主，不限于轮到自己叫分）
+  if (playerIndex !== session.currentBidderIndex && bid !== BidOption.ZERO) {
     return { success: false, error: '不是玩家' + (playerIndex + 1) + '的叫分回合' };
   }
 
-  // 亮主需带王: 红桃/方片带大王, 黑桃/梅花带小王
-  if (bid === BidOption.ZERO && suit) {
-    const hasKing = session.players[playerIndex].hand.some(c => {
-      if (suit === Suit.HEART || suit === Suit.DIAMOND) return c.value === CardValue.BIG_JOKER;
-      return c.value === CardValue.SMALL_JOKER;
-    });
-    if (!hasKing) {
-      const sname = suit === Suit.HEART ? "红桃" : suit === Suit.DIAMOND ? "方片" : suit === Suit.SPADE ? "黑桃" : "梅花";
-      const kname = (suit === Suit.HEART || suit === Suit.DIAMOND) ? "大王" : "小王";
-      return { success: false, error: "亮" + sname + "需要带" + kname };
+  // 亮主需带王 + 同色级牌：红桃/方片需大王 + 红方级牌；黑桃/梅花需小王 + 黑梅级牌
+  if (bid === BidOption.ZERO) {
+    if (!suit) {
+      return { success: false, error: '亮主需指定花色' };
     }
+    const isRed = suit === Suit.HEART || suit === Suit.DIAMOND;
+    const needJoker = isRed ? CardValue.BIG_JOKER : CardValue.SMALL_JOKER;
+    const needSuits = isRed ? [Suit.HEART, Suit.DIAMOND] : [Suit.SPADE, Suit.CLUB];
+    const hand = session.players[playerIndex].hand;
+    const hasKing = hand.some(c => c.value === needJoker);
+    const hasLevel = hand.some(c => needSuits.indexOf(c.suit) >= 0 && c.value === session.level);
+    if (!hasKing || !hasLevel) {
+      const sname = suit === Suit.HEART ? "红桃" : suit === Suit.DIAMOND ? "方片" : suit === Suit.SPADE ? "黑桃" : "梅花";
+      const kname = isRed ? "大王" : "小王";
+      const lname = levelToName(session.level);
+      return { success: false, error: "亮" + sname + "需要" + kname + "和" + lname + "级牌" };
+    }
+    // 亮主即定主：立即锁定花色并进入反主阶段（标准升级规则：谁亮主谁先定，他人可反主）
+    session.bidScore = 0;
+    session.finalBidderIndex = playerIndex;
+    session.finalSuit = suit;
+    session.trumpSuit = suit;
+    session.level = getLevelFromTeamLevel(session.teamLevels.get(0) ?? 0);
+    session.log.push('玩家' + (playerIndex + 1) + ' 亮主' + getSuitName(suit));
+    session.reverseActive = true;
+    session.reverseTarget = suit;
+    session.state = GameState.REVERSE;
+    session.currentBidderIndex = (playerIndex + 1) % 4;
+    return { success: true };
   }
 
   const result = validateBidForGame(bid, suit, session);
@@ -242,6 +262,14 @@ function getLevelFromTeamLevel(levelIdx: number): CardValue {
   return order[Math.min(levelIdx, order.length - 1)];
 }
 
+function levelToName(level: CardValue): string {
+  const map: { [k: string]: string } = {
+    two: "2", three: "3", four: "4", five: "5", six: "6", seven: "7",
+    eight: "8", nine: "9", ten: "10", jack: "J", queen: "Q", king: "K", ace: "A",
+  };
+  return map[level] || String(level);
+}
+
 // ============================================
 // 反主阶段
 // ============================================
@@ -249,7 +277,7 @@ function getLevelFromTeamLevel(levelIdx: number): CardValue {
 export function attemptReverse(
   session: GameSession,
   playerIndex: number,
-  reverseOption: ReverseOption,
+  reverseOption: { suit?: Suit | string; isNoTrump?: boolean } | ReverseOption,
 ): { success: boolean; error?: string } {
   if (session.state !== GameState.REVERSE) {
     return { success: false, error: '当前不在反主阶段' };
@@ -260,22 +288,27 @@ export function attemptReverse(
 
   const player = session.players[playerIndex];
   const validOptions = getReverseOptions(player, session.reverseTarget, session.reversePairUsed);
-  const isValid = validOptions.some(opt =>
-    opt.cards.length === reverseOption.cards.length &&
-    opt.newTrump === reverseOption.newTrump &&
-    opt.isNoTrump === reverseOption.isNoTrump &&
-    reverseOption.cards.every(rc => opt.cards.some(oc => oc.equals(rc)))
-  );
-
-  if (!isValid) {
-    return { success: false, error: '无效的反主操作' };
+  if (!validOptions.length) {
+    return { success: false, error: '没有可反的主' };
   }
 
-  session.trumpSuit = reverseOption.newTrump;
-  session.finalSuit = reverseOption.newTrump;
-  session.log.push('玩家' + (playerIndex + 1) + ' 反主为' + (reverseOption.isNoTrump ? '无主' : getSuitName(reverseOption.newTrump!)));
+  // 前端只需传期望的新主花色(或 isNoTrump)，由服务端按该玩家手牌匹配一个合法反主方案
+  let chosen: ReverseOption | null = null;
+  if (reverseOption && (reverseOption as any).isNoTrump) {
+    chosen = validOptions.find(o => o.isNoTrump) || null;
+  } else if (reverseOption && (reverseOption as any).suit) {
+    const want = (reverseOption as any).suit;
+    chosen = validOptions.find(o => !o.isNoTrump && o.newTrump === want) || null;
+  }
+  if (!chosen) {
+    return { success: false, error: '不能反为该花色（需持有对应王或对子）' };
+  }
 
-  if (reverseOption.cards.length >= 2) {
+  session.trumpSuit = chosen.newTrump;
+  session.finalSuit = chosen.newTrump;
+  session.log.push('玩家' + (playerIndex + 1) + ' 反主为' + (chosen.isNoTrump ? '无主' : getSuitName(chosen.newTrump!)));
+
+  if (chosen.cards.length >= 2) {
     session.reversePairUsed = true;
   }
 

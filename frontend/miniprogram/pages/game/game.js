@@ -78,6 +78,23 @@ function sortHandByRule(hand, trumpSuit, level) {
   });
 }
 
+// ============ 计算“本局可亮/可反的主花色”（升级亮主规则）============
+// 规则：大王(红) + 任意红色级牌(红桃/方片级牌) → 可亮 红桃 或 方片
+//       小王(黑) + 任意黑色级牌(黑桃/梅花级牌) → 可亮 黑桃 或 梅花
+// 例：从2打起，手里有 大鬼 + 红桃2(或方片2) → 红桃/方片 都能亮
+//    手里有 小鬼 + 梅花2(或黑桃2) → 黑桃/梅花 都能亮
+function _computeDeclarableSuits(hand, level) {
+  var suits = [];
+  if (!hand || !hand.length || !level) return { suits: suits, noTrump: false };
+  var hasBig = hand.some(function(c) { return c.value === "big_joker"; });
+  var hasSmall = hand.some(function(c) { return c.value === "small_joker"; });
+  var hasRedLevel = hand.some(function(c) { return (c.suit === "heart" || c.suit === "diamond") && c.value === level; });
+  var hasBlackLevel = hand.some(function(c) { return (c.suit === "spade" || c.suit === "club") && c.value === level; });
+  if (hasBig && hasRedLevel) { suits.push("heart"); suits.push("diamond"); }
+  if (hasSmall && hasBlackLevel) { suits.push("spade"); suits.push("club"); }
+  return { suits: suits, noTrump: (hasBig && hasSmall) };
+}
+
 // Helper: Get first letter of name as initial (uppercase)
 function getInitial(name) {
   if (!name) return '?';
@@ -397,6 +414,9 @@ Page({
     var self = this;
     var stepMs = 500;  // 每张牌 500ms（用户要求"0.5秒发一张"），25 张 = 12.5s 明显可见
 
+    // 发牌一开始就把“可亮/可反主花色”点亮到中间色条（满足“发牌过程中色条亮起”的需求）
+    self._updateTrumpDisplay(s);
+
     // 起始：清空手牌（防重入）
     this.setData({
       myHand: [],
@@ -483,31 +503,43 @@ Page({
     wx.showToast({ title: "进入叫分阶段", icon: "none", duration: 1200 });
   },
 
-  // 点击亮主区横条的某个 chip：直接以"亮主"叫分（0分）并指定花色
-  // big_joker / small_joker 也支持——后端接受 suit 为 joker 特殊处理
+  // 点击亮主区横条的某个 chip：
+  //  - 叫分阶段：以"亮主"(0分)叫分并指定花色（后端已放开回合，任何持有王+级牌者可随时亮主）
+  //  - 反主阶段且轮到自己：以该花色反主
+  // 大/小王 chip 暂不支持无主，提示改用花色
   onTrumpChipTap: function(e) {
     if (!wsClient || !this.session) return;
     var suit = e.currentTarget.dataset.suit;
     if (!suit) return;
-    // 仅在自己首家叫分时（或反主阶段自己可决策时）允许点击
-    var s = this.session;
-    var myTurn = false;
-    if (s.state === "bidding" && s.currentBidderIndex === this.data.myIndex) myTurn = true;
-    if (s.state === "reverse" && s.currentBidderIndex === this.data.myIndex) myTurn = true;
-    if (!myTurn) {
-      wx.showToast({ title: "还没轮到你叫分", icon: "none" });
+    // 大/小王 chip 不支持无主，引导点花色
+    if (suit === "big_joker" || suit === "small_joker") {
+      wx.showToast({ title: "请点 红桃/方片/黑桃/梅花 亮主或反主", icon: "none" });
       return;
     }
-    var suitLabel = (suit === "big_joker") ? "大王" : (suit === "small_joker") ? "小王" :
-                    (suitNames[suit] || suit);
+    var s = this.session;
+    var myTurn = (s.state === "bidding" && s.currentBidderIndex === this.data.myIndex)
+              || (s.state === "reverse" && s.currentBidderIndex === this.data.myIndex);
+    var action = "";
+    if (s.state === "bidding") action = "bid";                 // 亮主：叫分阶段可随时
+    else if (s.state === "reverse" && myTurn) action = "reverse";
+    if (!action) {
+      wx.showToast({ title: (s.state === "reverse" ? "还没轮到你反主" : "当前不能亮主"), icon: "none" });
+      return;
+    }
+    var suitLabel = suitNames[suit] || suit;
+    var verb = (action === "reverse") ? "反主" : "亮主";
     wx.showModal({
-      title: "亮主确认",
-      content: "以 " + suitLabel + " 为主花色（0分亮主），是否确定？",
-      confirmText: "亮主",
+      title: verb + "确认",
+      content: "以 " + suitLabel + " 为主花色（" + verb + "），是否确定？",
+      confirmText: verb,
       cancelText: "取消",
       success: function(res) {
         if (res.confirm) {
-          wsClient.send({ type: "bid", bid: "0", suit: suit });
+          if (action === "reverse") {
+            wsClient.send({ type: "reverse", option: { suit: suit } });
+          } else {
+            wsClient.send({ type: "bid", bid: "0", suit: suit });
+          }
         }
       }
     });
@@ -694,30 +726,44 @@ Page({
         }
       }
     }
-    // 首家叫分时 chip 可点击（直接亮牌叫分）
-    var myTurn = (s.state === "bidding" && s.currentBidderIndex === this.data.myIndex)
-              || (s.state === "reverse" && s.currentBidderIndex === this.data.myIndex);
-    var chips = [
-      { key: "big_joker",   label: "大", suitClass: "suit-joker",   lit: false, dim: true, clickable: myTurn },
-      { key: "small_joker", label: "小", suitClass: "suit-joker",   lit: false, dim: true, clickable: myTurn },
-      { key: "spade",       label: "♠", suitClass: "suit-spade",   lit: false, dim: true, clickable: myTurn },
-      { key: "heart",       label: "♥", suitClass: "suit-heart",   lit: false, dim: true, clickable: myTurn },
-      { key: "club",        label: "♣", suitClass: "suit-club",    lit: false, dim: true, clickable: myTurn },
-      { key: "diamond",     label: "♦", suitClass: "suit-diamond", lit: false, dim: true, clickable: myTurn }
+    var myIdx = this.data.myIndex;
+    var myTurn = (s.state === "bidding" && s.currentBidderIndex === myIdx)
+              || (s.state === "reverse" && s.currentBidderIndex === myIdx);
+    // 本局“我”可亮/可反的主花色（基于本人手牌 + 当前级别）
+    var meHand = (s.players && s.players[myIdx]) ? s.players[myIdx].hand : [];
+    var decl = _computeDeclarableSuits(meHand, s.level);
+    var declSuits = decl.suits;
+    var declNoTrump = decl.noTrump;
+    // 当前阶段是否允许操作：叫分阶段任何玩家可亮主；反主阶段仅轮到者
+    var canAct = (s.state === "bidding") || (s.state === "reverse" && myTurn);
+
+    var chipDefs = [
+      { key: "big_joker",   label: "大", suitClass: "suit-joker" },
+      { key: "small_joker", label: "小", suitClass: "suit-joker" },
+      { key: "spade",       label: "♠", suitClass: "suit-spade" },
+      { key: "heart",       label: "♥", suitClass: "suit-heart" },
+      { key: "club",        label: "♣", suitClass: "suit-club" },
+      { key: "diamond",     label: "♦", suitClass: "suit-diamond" }
     ];
-    if (currentSuit) {
-      for (var i=0;i<chips.length;i++){
-        if (chips[i].key === currentSuit) {
-          chips[i].lit = true;
-          chips[i].dim = false;
-        }
-      }
-    }
+    var chips = chipDefs.map(function(d) {
+      var isCurrent = (d.key === currentSuit);
+      var isAvail = (declSuits.indexOf(d.key) >= 0) ||
+                    (declNoTrump && (d.key === "big_joker" || d.key === "small_joker"));
+      return {
+        key: d.key,
+        label: d.label,
+        suitClass: d.suitClass,
+        lit: isCurrent,
+        dim: !isCurrent && !isAvail,
+        available: !isCurrent && isAvail,
+        clickable: !isCurrent && isAvail && canAct
+      };
+    });
+
     // 字幕
     var caption = "";
     if (s.state === "bidding") {
       if (currentSuit) {
-        // 找最后一次有效叫分的分值
         var latestBidScore = 0;
         for (var j = s.bidHistory.length - 1; j >= 0; j--) {
           if (s.bidHistory[j].bid !== "pass") {
@@ -727,11 +773,18 @@ Page({
         }
         var bidScoreStr = (latestBidScore > 0) ? (latestBidScore + "分") : "亮主";
         caption = "已叫" + (suitNames[currentSuit] || currentSuit) + " " + bidScoreStr;
+      } else if (declSuits.length > 0) {
+        caption = "你有可亮主花色，点上方色块即可亮主";
       } else {
-        caption = myTurn ? "点上方 4 花色或大小王亮主" : "等待叫主";
+        caption = myTurn ? "点上方花色亮主" : "等待叫主";
       }
     } else if (s.state === "reverse") {
-      caption = myTurn ? "点上方 4 花色或大小王反主" : "等待其他玩家反主";
+      if (declSuits.length > 0) {
+        var availNames = declSuits.map(function(x) { return suitNames[x] || x; }).join("/");
+        caption = myTurn ? ("点上方色块反主（可反 " + availNames + "）") : ("等待反主，你可反 " + availNames);
+      } else {
+        caption = myTurn ? "你无可反主，点“不反主”" : "等待其他玩家反主";
+      }
     } else if (s.state === "playing" || s.state === "scoring" || s.state === "round_end") {
       if (currentSuit) {
         var finalScoreStr = (s.bidScore > 0) ? (s.bidScore + "分亮主") : "亮主坐庄";
@@ -745,7 +798,9 @@ Page({
     this.setData({
       trumpDisplayVisible: visible,
       trumpChips: chips,
-      trumpCaption: caption
+      trumpCaption: caption,
+      declarableSuits: declSuits,
+      declarableNoTrump: declNoTrump
     });
   },
 
