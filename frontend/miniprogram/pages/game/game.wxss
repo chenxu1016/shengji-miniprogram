@@ -34,7 +34,7 @@ page {
 .status-bar {
   position: relative;
   z-index: 10;
-  flex: 0 0 56rpx;
+  flex: 0 0 40rpx;
   display: flex;
   align-items: center;
   padding: 0 16rpx;
@@ -43,14 +43,14 @@ page {
 }
 
 .back-btn, .help-btn, .piggy-icon {
-  width: 48rpx;
-  height: 48rpx;
+  width: 36rpx;
+  height: 36rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  font-size: 28rpx;
-  border-radius: 10rpx;
+  font-size: 24rpx;
+  border-radius: 8rpx;
   background: rgba(255,255,255,0.1);
 }
 
@@ -198,35 +198,63 @@ page {
   overflow: hidden;
 }
 
-/* 第1行：顶部条 - 固定 76rpx，左记分面板 + 右亮主区横条 */
+/* 第1行：顶部条 - 紧凑 56rpx，左记分面板 + 右亮主区横条 */
 .top-bar {
   position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 76rpx;
+  top: 40rpx; left: 0; right: 0;
+  height: 56rpx;
   display: flex;
   align-items: center;
-  gap: 8rpx;
-  padding: 4rpx 8rpx;
+  gap: 6rpx;
+  padding: 2rpx 6rpx;
   background: rgba(0,0,0,0.5);
   overflow: hidden;
   z-index: 5;
 }
 
-/* 左上角记分面板 - 改为内联在 top-bar */
+/* 左上角记分面板 - 紧凑三列内嵌在一行 */
 .score-panel {
   display: flex;
-  flex-direction: column;
-  gap: 2rpx;
+  flex-direction: row;
+  gap: 12rpx;
   background: rgba(0, 0, 0, 0.55);
-  border: 2rpx solid rgba(255, 215, 0, 0.4);
-  border-radius: 10rpx;
-  padding: 4rpx 10rpx;
+  border: 1.5rpx solid rgba(255, 215, 0, 0.4);
+  border-radius: 8rpx;
+  padding: 2rpx 10rpx;
   min-width: 240rpx;
   max-width: 360rpx;
-  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.5);
+  box-shadow: 0 1rpx 6rpx rgba(0, 0, 0, 0.5);
   flex-shrink: 0;
   pointer-events: none;
+  height: 48rpx;
+  align-items: center;
 }
+
+.score-panel .score-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0rpx;
+  flex-shrink: 0;
+  min-width: 70rpx;
+}
+
+.score-panel .score-col-label {
+  font-size: 16rpx;
+  color: rgba(255, 215, 0, 0.7);
+  letter-spacing: 1rpx;
+  line-height: 1.2;
+}
+
+.score-panel .score-col-value {
+  font-size: 22rpx;
+  font-weight: bold;
+  line-height: 1.2;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.score-panel .score-col-value.mine { color: #4ade80; }
+.score-panel .score-col-value.opp { color: #f87171; }
+.score-panel .score-col-value.trump { color: #fbbf24; font-size: 20rpx; }
 
 .score-panel .score-row {
   display: flex;
@@ -367,13 +395,13 @@ page {
   white-space: nowrap;
 }
 
-/* 第2行：牌桌区 - 顶部条下方到底部 160rpx 之间（给操作栏 60 + 手牌 100 留位置） */
+/* 第2行：牌桌区 - 顶部条下方到底部 140rpx 之间（给操作栏 60 + 手牌 80 留位置） */
 .table-area {
   position: absolute;
-  top: 76rpx;
+  top: 96rpx;
   left: 0;
   right: 0;
-  bottom: 160rpx;
+  bottom: 140rpx;
   overflow: hidden;
 }
 
@@ -566,75 +594,72 @@ page {
   border-radius: 16rpx;
 }
 
-/* ===== 反牌倒计时遮罩（发完牌后）：只覆盖中央 60% 区域，让顶部亮主区横条始终可点 ===== */
+/* ===== 反牌倒计时遮罩：改成顶部条状，贴 top-bar 下方，不挡中央牌桌区 ===== */
 .reverse-overlay {
   position: absolute;
-  top: 10%;
-  left: 20%;
-  right: 20%;
-  bottom: 10%;
+  top: 0; left: 0; right: 0;
+  height: 60rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.55);
+  gap: 16rpx;
+  background: linear-gradient(180deg, rgba(30, 58, 95, 0.95) 0%, rgba(15, 31, 51, 0.95) 100%);
+  border-bottom: 2rpx solid #fbbf24;
   z-index: 18;
-  border-radius: 16rpx;
+  padding: 0 20rpx;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.5);
 }
 
 .reverse-card {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   gap: 14rpx;
-  padding: 28rpx 36rpx;
-  background: linear-gradient(180deg, #1e3a5f 0%, #0f1f33 100%);
-  border: 3rpx solid #fbbf24;
-  border-radius: 20rpx;
-  box-shadow: 0 6rpx 20rpx rgba(251, 191, 36, 0.4), inset 0 0 12rpx rgba(251, 191, 36, 0.15);
-  min-width: 360rpx;
+  width: 100%;
+  justify-content: space-between;
 }
 
 .reverse-card .reverse-title {
-  font-size: 30rpx;
+  font-size: 24rpx;
   color: #fbbf24;
   font-weight: bold;
-  letter-spacing: 4rpx;
-  text-shadow: 0 2rpx 4rpx rgba(0,0,0,0.5);
+  letter-spacing: 2rpx;
+  text-shadow: 0 1rpx 2rpx rgba(0,0,0,0.5);
 }
 
 .reverse-card .reverse-clock {
   position: relative;
-  width: 140rpx;
-  height: 140rpx;
+  width: 44rpx;
+  height: 44rpx;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .reverse-card .reverse-ring {
-  width: 140rpx;
-  height: 140rpx;
+  width: 44rpx;
+  height: 44rpx;
   border-radius: 50%;
   background: linear-gradient(135deg, #fbbf24, #d97706);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 24rpx rgba(251, 191, 36, 0.6);
+  box-shadow: 0 0 12rpx rgba(251, 191, 36, 0.6);
   animation: ringPulse 1.6s ease-in-out infinite;
 }
 
 .reverse-card .reverse-ring-num {
-  width: 116rpx;
-  height: 116rpx;
+  width: 36rpx;
+  height: 36rpx;
   border-radius: 50%;
   background: radial-gradient(circle at 30% 30%, #1e3a5f, #0a1424);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 56rpx;
+  font-size: 22rpx;
   font-weight: bold;
   color: #fbbf24;
-  text-shadow: 0 0 12rpx rgba(251, 191, 36, 0.6);
+  text-shadow: 0 0 6rpx rgba(251, 191, 36, 0.6);
   font-family: 'Courier New', monospace;
 }
 
@@ -644,35 +669,34 @@ page {
 }
 
 .reverse-card .reverse-hint {
-  font-size: 22rpx;
+  font-size: 18rpx;
   color: rgba(255,255,255,0.9);
+  line-height: 1.3;
+  flex: 1;
   text-align: center;
-  line-height: 1.4;
-  margin-top: 4rpx;
 }
 
 .reverse-card .reverse-tips {
-  font-size: 18rpx;
+  font-size: 16rpx;
   color: rgba(251, 191, 36, 0.7);
-  text-align: center;
   background: rgba(0,0,0,0.3);
-  padding: 4rpx 14rpx;
-  border-radius: 14rpx;
-  margin-top: 2rpx;
+  padding: 2rpx 10rpx;
+  border-radius: 10rpx;
 }
 
 .reverse-card .reverse-skip-btn {
-  margin: 8rpx 0 0 0;
-  padding: 0 30rpx;
-  height: 56rpx;
-  line-height: 56rpx;
-  font-size: 24rpx;
-  border-radius: 28rpx;
+  margin: 0;
+  padding: 0 20rpx;
+  height: 40rpx;
+  line-height: 40rpx;
+  font-size: 20rpx;
+  border-radius: 20rpx;
   background: linear-gradient(135deg, #f59e0b, #d97706);
   color: white;
   font-weight: bold;
   border: none;
-  box-shadow: 0 3rpx 8rpx rgba(245,158,11,0.4);
+  box-shadow: 0 2rpx 6rpx rgba(245,158,11,0.4);
+  flex-shrink: 0;
 }
 
 /* 翻牌动画：每张新牌从下方飞入 + 翻面 */
@@ -697,7 +721,7 @@ page {
 /* 第3行：操作栏 - 固定 60rpx，绝对定位在手牌上方 */
 .action-bar {
   position: absolute;
-  bottom: 100rpx;
+  bottom: 80rpx;
   left: 0;
   right: 0;
   height: 60rpx;
@@ -709,7 +733,7 @@ page {
   background: rgba(0,0,0,0.4);
   flex-wrap: nowrap;
   overflow: hidden;
-  z-index: 5;
+  z-index: 7;
 }
 
 .op-btn {
@@ -738,17 +762,17 @@ page {
   text-align: center;
 }
 
-/* 第4行：手牌 - 绝对定位贴底 100rpx（永远可见，不被 flex 计算挤掉） */
+/* 第4行：手牌 - 绝对定位贴底 80rpx（更紧凑，25张不滚） */
 .hand-area {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 100rpx;
+  height: 80rpx;
   width: 100%;
   box-sizing: border-box;
   display: block;
-  padding: 6rpx 16rpx;
+  padding: 4rpx 16rpx;
   background: rgba(0,0,0,0.4);
   overflow-x: auto;
   overflow-y: hidden;
@@ -768,13 +792,13 @@ page {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44rpx;
-  height: 82rpx;
-  margin-right: -24rpx;
+  width: 36rpx;
+  height: 68rpx;
+  margin-right: -20rpx;
   background: #fff;
   border: 1.5rpx solid #cbd5e1;
-  border-radius: 6rpx;
-  font-size: 22rpx;
+  border-radius: 5rpx;
+  font-size: 20rpx;
   font-weight: bold;
   color: #111;
   flex-shrink: 0;
@@ -786,7 +810,7 @@ page {
 .hand-card.red { color: #dc2626; }
 
 .hand-card.selected {
-  transform: translateY(-18rpx);
+  transform: translateY(-16rpx);
   border-color: #f59e0b;
   box-shadow: 0 3rpx 8rpx rgba(245,158,11,0.5);
   z-index: 10;

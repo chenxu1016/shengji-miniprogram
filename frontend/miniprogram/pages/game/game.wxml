@@ -69,16 +69,17 @@
     <!-- 顶部信息条：左上记分面板 + 右侧亮主区（横向 6 chip 小条） -->
     <view class="top-bar">
       <view class="score-panel">
-        <view class="score-row">
-          <text class="score-team mine">我方 {{scorePanel.myLevel}}级</text>
-          <text class="score-team opp">对方 {{scorePanel.oppLevel}}级</text>
+        <view class="score-col">
+          <text class="score-col-label">我方</text>
+          <text class="score-col-value mine">{{scorePanel.myLevel}}级</text>
         </view>
-        <view class="score-row">
-          <text class="score-points mine">本轮 {{scorePanel.myScore}}分</text>
-          <text class="score-points opp">对方 {{scorePanel.oppScore}}分</text>
+        <view class="score-col">
+          <text class="score-col-label">对方</text>
+          <text class="score-col-value opp">{{scorePanel.oppLevel}}级</text>
         </view>
-        <view class="score-row trump-info">
-          <text class="trump-info-text">本局打:{{scorePanel.trumpText}}</text>
+        <view class="score-col">
+          <text class="score-col-label">本局</text>
+          <text class="score-col-value trump">{{scorePanel.trumpText}}</text>
         </view>
       </view>
 
@@ -145,8 +146,7 @@
         <text class="dealing-count">已发 {{dealingDone}}/25</text>
       </view>
 
-      <!-- 反牌倒计时遮罩：发牌完成后接管，给非庄家 15s 考虑反主。
-           改成只覆盖中央 60% 区域，让顶部亮主区横条始终可见可点击 -->
+      <!-- 反牌倒计时：顶部条状，贴 top-bar 下方，不挡中央牌桌区 -->
       <view class="reverse-overlay" wx:if="{{reverseCountdownActive}}">
         <view class="reverse-card">
           <view class="reverse-title">反牌倒计时</view>
@@ -155,8 +155,8 @@
               <view class="reverse-ring-num">{{reverseCountdown}}</view>
             </view>
           </view>
-          <view class="reverse-hint">其他玩家有 {{reverseCountdown}} 秒时间考虑是否反主</view>
-          <view class="reverse-tips">提示：点上方 4 个花色/大小王直接亮主叫分</view>
+          <view class="reverse-hint">请看牌，剩余 {{reverseCountdown}} 秒可反主</view>
+          <view class="reverse-tips">点 6 chip 亮主</view>
           <button class="reverse-skip-btn" bindtap="onSkipReverseCountdown">开始叫分 →</button>
         </view>
       </view>
