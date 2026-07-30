@@ -17,6 +17,15 @@
         <text class="room-count">共 {{roomList.length}} 间</text>
       </view>
 
+      <!-- 微信头像/昵称同步（进入大厅即可设置，房间内实时同步给所有人） -->
+      <view class="profile-sync">
+        <button class="avatar-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+          <image wx:if="{{myAvatar}}" src="{{myAvatar}}" class="avatar-img" mode="aspectFill"></image>
+          <view wx:else class="avatar-placeholder">＋</view>
+        </button>
+        <input class="nickname-input" type="nickname" placeholder="点击同步微信昵称" value="{{myNickname}}" bindblur="onNicknameInput" bindinput="onNicknameInput" />
+      </view>
+
       <button class="btn btn-create" bindtap="onCreateRoom" wx:if="{{!inRoom}}">
         <text class="btn-icon">+</text>
         <text>创建房间</text>

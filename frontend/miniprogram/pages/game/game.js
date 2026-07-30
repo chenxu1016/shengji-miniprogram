@@ -194,6 +194,7 @@ Page({
         name: wx.getStorageSync("playerName") || "",
         nickname: wx.getStorageSync("playerNickname") || "",
         avatar: wx.getStorageSync("playerAvatar") || "",
+        playerId: wsClient.getOrCreatePlayerId ? wsClient.getOrCreatePlayerId() : "",
         roomId: roomId,
         myIndex: myIndex
       });
@@ -284,6 +285,13 @@ Page({
         }
       } catch(e) { console.error("[Game] Failed to parse pending session", e); }
     }
+  },
+
+  // 从后台/其他页面切回前台时，若 WebSocket 已断开，立即重连并恢复对局
+  onShow: function() {
+    var app = require("../../utils/wsClient");
+    var c = app.createWsClient();
+    if (c.reconnectNow) c.reconnectNow();
   },
 
   _onRoomUpdate: function(msg) {

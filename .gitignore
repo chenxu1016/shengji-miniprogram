@@ -27,4 +27,11 @@ Thumbs.db
 # Misc
 *.tmp
 *.bak
+*.bak*
+*_temp.js
 *.pyc
+
+# Local data / backups (never commit)
+.workbuddy/
+backend/src/server_output.txt
+game_wxml_original.txt

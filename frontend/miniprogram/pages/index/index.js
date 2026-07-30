@@ -11,7 +11,9 @@ Page({
     selfReady: false,
     allReady: false,
     roomList: [],
-    joinRoomId: ''
+    joinRoomId: '',
+    myNickname: '',
+    myAvatar: ''
   },
 
   onLoad(options) {
@@ -44,7 +46,8 @@ Page({
       if (this._shareRoomId && !this.data.inRoom) {
         var rid = this._shareRoomId;
         this._shareRoomId = '';
-        wsClient.send({ type: 'joinRoom', roomId: rid, name: wx.getStorageSync('playerName') || '玩家', nickname: wx.getStorageSync('playerNickname') || '', avatar: wx.getStorageSync('playerAvatar') || '' });
+        var pid = wsClient.getOrCreatePlayerId ? wsClient.getOrCreatePlayerId() : '';
+        wsClient.send({ type: 'joinRoom', roomId: rid, name: wx.getStorageSync('playerName') || '玩家', nickname: wx.getStorageSync('playerNickname') || '', avatar: wx.getStorageSync('playerAvatar') || '', playerId: pid });
       }
     }.bind(this));
 
@@ -150,8 +153,9 @@ Page({
     var name = wx.getStorageSync('playerName') || '玩家';
     var nickname = wx.getStorageSync('playerNickname') || '';
     var avatar = wx.getStorageSync('playerAvatar') || '';
-    wsClient.saveIdentity({ name: name, nickname: nickname, avatar: avatar });
-    wsClient.send({ type: 'createRoom', name: name, nickname: nickname, avatar: avatar });
+    var playerId = wsClient.getOrCreatePlayerId ? wsClient.getOrCreatePlayerId() : '';
+    wsClient.saveIdentity({ name: name, nickname: nickname, avatar: avatar, playerId: playerId });
+    wsClient.send({ type: 'createRoom', name: name, nickname: nickname, avatar: avatar, playerId: playerId });
   },
 
   onJoinRoomIdInput: function(e) {
@@ -169,8 +173,9 @@ Page({
     var name = wx.getStorageSync('playerName') || '玩家';
     var nickname = wx.getStorageSync('playerNickname') || '';
     var avatar = wx.getStorageSync('playerAvatar') || '';
-    wsClient.saveIdentity({ name: name, nickname: nickname, avatar: avatar, roomId: roomId });
-    wsClient.send({ type: 'joinRoom', roomId: roomId, name: name, nickname: nickname, avatar: avatar });
+    var playerId = wsClient.getOrCreatePlayerId ? wsClient.getOrCreatePlayerId() : '';
+    wsClient.saveIdentity({ name: name, nickname: nickname, avatar: avatar, playerId: playerId, roomId: roomId });
+    wsClient.send({ type: 'joinRoom', roomId: roomId, name: name, nickname: nickname, avatar: avatar, playerId: playerId });
     this.setData({ joinRoomId: '' });
   },
 
@@ -185,8 +190,9 @@ Page({
     var name = wx.getStorageSync('playerName') || '玩家';
     var nickname = wx.getStorageSync('playerNickname') || '';
     var avatar = wx.getStorageSync('playerAvatar') || '';
-    wsClient.saveIdentity({ name: name, nickname: nickname, avatar: avatar, roomId: room.id });
-    wsClient.send({ type: 'joinRoom', roomId: room.id, name: name, nickname: nickname, avatar: avatar });
+    var playerId = wsClient.getOrCreatePlayerId ? wsClient.getOrCreatePlayerId() : '';
+    wsClient.saveIdentity({ name: name, nickname: nickname, avatar: avatar, playerId: playerId, roomId: room.id });
+    wsClient.send({ type: 'joinRoom', roomId: room.id, name: name, nickname: nickname, avatar: avatar, playerId: playerId });
   },
 
   onToggleReady: function() {
@@ -234,6 +240,46 @@ Page({
 
   onAbout: function() {
     wx.showToast({ title: '升级扑克 v1.0 在线版', icon: 'none' });
+  },
+
+  // 切回前台时，若已掉线立即重连（修复：切后台再回来变成离线、别人无法准备）
+  onShow: function() {
+    var app = require('../../utils/wsClient');
+    var c = app.createWsClient();
+    if (c.reconnectNow) c.reconnectNow();
+    // 回显已同步的微信昵称 / 头像
+    var nick = wx.getStorageSync('playerNickname') || '';
+    var av = wx.getStorageSync('playerAvatar') || '';
+    if (nick !== this.data.myNickname || av !== this.data.myAvatar) {
+      this.setData({ myNickname: nick, myAvatar: av });
+    }
+  },
+
+  // 微信头像选择（button open-type="chooseAvatar"）
+  onChooseAvatar: function(e) {
+    var avatarUrl = (e.detail && e.detail.avatarUrl) || '';
+    if (!avatarUrl) return;
+    wx.setStorageSync('playerAvatar', avatarUrl);
+    this.setData({ myAvatar: avatarUrl });
+    this._syncProfile();
+  },
+
+  // 微信昵称输入（input type="nickname"）
+  onNicknameInput: function(e) {
+    var nick = (e.detail && e.detail.value) || '';
+    wx.setStorageSync('playerNickname', nick);
+    this.setData({ myNickname: nick });
+    this._syncProfile();
+  },
+
+  // 把最新头像/昵称同步给后端（若已在房间则实时更新所有人显示）
+  _syncProfile: function() {
+    var nickname = wx.getStorageSync('playerNickname') || '';
+    var avatar = wx.getStorageSync('playerAvatar') || '';
+    if (wsClient && wsClient.isConnected()) {
+      var playerId = wsClient.getOrCreatePlayerId ? wsClient.getOrCreatePlayerId() : '';
+      wsClient.send({ type: 'updateProfile', nickname: nickname, avatar: avatar, playerId: playerId });
+    }
   },
 
   onShareAppMessage: function() {

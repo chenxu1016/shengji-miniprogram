@@ -32,11 +32,13 @@ function createWsClient() {
     _reconnectCallbacks: [],  // 多个 onReconnecting 回调
     _reconnectAttempt: 0,
     _reconnectTimer: null,
+    _connecting: false,
     _intentionalClose: false,
     // 持久化的身份信息（用于断线重连后自动 rejoin）
     _savedName: '',
     _savedNickname: '',
     _savedAvatar: '',
+    _savedPlayerId: '',
     _savedRoomId: '',
     _savedMyIndex: -1,
 
@@ -65,6 +67,7 @@ function createWsClient() {
       if (opts.name) this._savedName = opts.name;
       if (opts.nickname !== undefined) this._savedNickname = opts.nickname;
       if (opts.avatar !== undefined) this._savedAvatar = opts.avatar;
+      if (opts.playerId) this._savedPlayerId = opts.playerId;
       if (opts.roomId) this._savedRoomId = opts.roomId;
       if (typeof opts.myIndex === 'number' && opts.myIndex >= 0) this._savedMyIndex = opts.myIndex;
     },
@@ -74,6 +77,7 @@ function createWsClient() {
         name: this._savedName,
         nickname: this._savedNickname,
         avatar: this._savedAvatar,
+        playerId: this._savedPlayerId || getOrCreatePlayerId(),
         roomId: this._savedRoomId,
         myIndex: this._savedMyIndex
       };
@@ -112,10 +116,33 @@ function createWsClient() {
       return this._connected;
     },
 
+    // 暴露获取/创建稳定 playerId 的方法（断线重连用）
+    getOrCreatePlayerId: function() {
+      return getOrCreatePlayerId();
+    },
+
+    /**
+     * 立即重连（用于 onShow：从后台切回前台时，若发现已掉线，马上重建连接，
+     * 而不是等下一次退避计时器）。非主动关闭时才生效。
+     */
+    reconnectNow: function() {
+      if (this._intentionalClose) return;
+      if (this._connected) return;
+      if (this._connecting) return; // 已有连接尝试在进行，避免重复建连
+      if (this._reconnectTimer) {
+        clearTimeout(this._reconnectTimer);
+        this._reconnectTimer = null;
+      }
+      this._reconnectAttempt = 0;
+      console.log('[WS] reconnectNow() 立即重连');
+      this._connect();
+    },
+
     /**
      * 实际创建 socket task
      */
     _connect: function() {
+      this._connecting = true;
       var socketTask = wx.connectSocket({
         url: SERVER_URL,
         success: function() { console.log('[WS] connectSocket called'); },
@@ -126,6 +153,7 @@ function createWsClient() {
       socketTask.onOpen(function() {
         console.log('[WS] Socket OPEN');
         self._connected = true;
+        self._connecting = false;
         self._reconnectAttempt = 0;
         // 调用所有 onConnect 回调
         self._connectCallbacks.forEach(function(fn) {
@@ -135,14 +163,15 @@ function createWsClient() {
         // 自动重新加入房间（断线重连场景）
         var ident = self.getIdentity();
         if (ident.roomId && ident.name) {
-          console.log('[WS] 自动重新加入房间', ident.roomId, 'as', ident.name);
+          console.log('[WS] 自动重新加入房间', ident.roomId, 'as', ident.name, 'playerId=', ident.playerId);
           setTimeout(function() {
             self._socketTask.send({ data: JSON.stringify({
               type: 'joinRoom',
               roomId: ident.roomId,
               name: ident.name,
               nickname: ident.nickname || '',
-              avatar: ident.avatar || ''
+              avatar: ident.avatar || '',
+              playerId: ident.playerId
             })});
           }, 100);
         }
@@ -166,6 +195,7 @@ function createWsClient() {
         console.log('[WS] Socket CLOSE, intentional=' + self._intentionalClose);
         var wasConnected = self._connected;
         self._connected = false;
+        self._connecting = false;
 
         if (self._intentionalClose) return; // 主动关闭，不重连
 
@@ -204,7 +234,22 @@ function createWsClient() {
   return wsClient;
 }
 
+// 生成客户端稳定身份标识（playerId），用于断线重连时匹配原座位。
+// 优先读本地存储，避免每次进入都变；存到 wx storage 持久化。
+function getOrCreatePlayerId() {
+  try {
+    var pid = wx.getStorageSync('playerId');
+    if (pid) return pid;
+    pid = 'u_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9);
+    wx.setStorageSync('playerId', pid);
+    return pid;
+  } catch (e) {
+    return 'u_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9);
+  }
+}
+
 module.exports = {
   createWsClient: createWsClient,
+  getOrCreatePlayerId: getOrCreatePlayerId,
   SERVER_URL: SERVER_URL
 };
