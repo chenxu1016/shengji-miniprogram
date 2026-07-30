@@ -187,10 +187,15 @@
     <!-- 手牌区（用普通 view 替代 scroll-view，避免被 flex 父容器压成 0 高度） -->
     <view class="hand-area">
       <view class="hand-cards">
-        <view class="hand-card {{item.selected?'selected':''}} {{item.red?'red':''}} {{item.dealing?'dealing-in':''}}"
-              wx:for="{{myHand}}" wx:key="index"
+        <view class="hand-card {{item.selected?'selected':''}} {{item.isJoker?'joker':''}} {{item.dealing?'dealing-in':''}} suit-{{item.suit}}"
+              wx:for="{{myHand}}" wx:key="key"
               data-index="{{index}}" bindtap="onCardTap">
-          <text>{{item.display}}</text>
+          <view class="hand-card-top">{{item.topLabel}}</view>
+          <view class="hand-card-center">
+            <text class="hand-card-rank">{{item.rankChar}}</text>
+            <text class="hand-card-suit-small">{{item.suitChar}}</text>
+          </view>
+          <view class="hand-card-bottom">{{item.suitChar}}</view>
         </view>
       </view>
     </view>

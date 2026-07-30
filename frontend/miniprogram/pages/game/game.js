@@ -2,6 +2,55 @@
 var levelNames = {two:"2",three:"3",four:"4",five:"5",six:"6",seven:"7",eight:"8",nine:"9",ten:"10",jack:"J",queen:"Q",king:"K",ace:"A"};
 var suitNames = {spade:"黑桃",heart:"红桃",club:"梅花",diamond:"方块",none:"无",null:"无"};
 
+// ============ 单张牌 → 手牌 UI 项（三段式：顶小字/中数字+小花/底大花）============
+// 拆 card 为 WXML 渲染所需的字段，让堆叠时也能看到花色
+function _suitChar(suit) {
+  if (suit === "spade")   return "\u2660";   // ♠
+  if (suit === "heart")   return "\u2665";   // ♥
+  if (suit === "club")    return "\u2663";   // ♣
+  if (suit === "diamond") return "\u2666";   // ♦
+  return "";
+}
+function _rankChar(value) {
+  if (!value) return "";
+  if (value === "big_joker")   return "JOKER";
+  if (value === "small_joker") return "JOKER";
+  if (value === "ace")   return "A";
+  if (value === "king")  return "K";
+  if (value === "queen") return "Q";
+  if (value === "jack")  return "J";
+  if (value === "ten")   return "10";
+  if (value === "two")   return "2";
+  if (value === "three") return "3";
+  if (value === "four")  return "4";
+  if (value === "five")  return "5";
+  if (value === "six")   return "6";
+  if (value === "seven") return "7";
+  if (value === "eight") return "8";
+  if (value === "nine")  return "9";
+  return value;
+}
+function cardToHandItem(c, idx) {
+  if (!c) return null;
+  var isJoker = (c.value === "big_joker" || c.value === "small_joker");
+  var topLabel = isJoker ? "JOKER" : _suitChar(c.suit);
+  var rank = isJoker ? (c.value === "big_joker" ? "大" : "小") : _rankChar(c.value);
+  var sChar = isJoker ? (c.value === "big_joker" ? "\u2665" : "\u2660") : _suitChar(c.suit);  // 大王♥ 小王♠
+  return {
+    card: c,
+    key: (c.suit || "x") + "_" + (c.value || "x") + "_" + (idx || 0),
+    display: c.display || c.toString(),
+    topLabel: topLabel,
+    rankChar: rank,
+    suitChar: sChar,
+    suit: c.suit || "spade",
+    isJoker: isJoker,
+    selected: false,
+    playable: true,
+    dealing: false
+  };
+}
+
 // ============ 手牌排序（发牌后按升级规则排列）============
 // 分组优先级：1大王 2小王 3级牌 4主花色 5副牌
 // 组内：先按花色（黑桃>红桃>梅花>方块），同花色按点数 A>K>Q>...>2
@@ -335,9 +384,7 @@ Page({
     // 先按升级规则排序（大王→小王→级牌→主花色→副牌），再逐张发，发完即有序
     var rawHand = (me && me.hand) ? me.hand : [];
     var sortedHand = sortHandByRule(rawHand, s.trumpSuit, s.level);
-    var fullHand = sortedHand.map(function(c) {
-      return { card: c, display: c.display || c.toString(), selected: false, playable: true, red: c.suit === "diamond" || c.suit === "heart" };
-    });
+    var fullHand = sortedHand.map(function(c, i) { return cardToHandItem(c, i); });
     var total = fullHand.length || 25;
     var self = this;
     var stepMs = 500;  // 每张牌 500ms（用户要求"0.5秒发一张"），25 张 = 12.5s 明显可见
@@ -528,14 +575,19 @@ Page({
     if (me && me.hand) {
       // 按升级规则排序（大王→小王→级牌→主花色→副牌），每组内 A>K>...>2，对子自动相邻
       var sorted = sortHandByRule(me.hand, s.trumpSuit, s.level);
-      myHand = sorted.map(function(c) {
-        return {
-          card: c,
-          display: c.display || c.toString(),
-          selected: false,
-          playable: true,
-          red: (c.suit === "diamond" || c.suit === "heart")
-        };
+      // 保留已选中的标记（出牌阶段用户可能已选中过牌）
+      var prevSelected = {};
+      (this.data.myHand || []).forEach(function(it, i) {
+        if (it && it.selected && it.card) {
+          prevSelected[it.card.suit + "_" + it.card.value] = true;
+        }
+      });
+      myHand = sorted.map(function(c, i) {
+        var item = cardToHandItem(c, i);
+        if (prevSelected[c.suit + "_" + c.value]) {
+          item.selected = true;
+        }
+        return item;
       });
     }
     var myIdx = this.data.myIndex;
