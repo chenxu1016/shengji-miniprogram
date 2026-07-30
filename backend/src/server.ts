@@ -87,6 +87,8 @@ function createRoom(hostName: string, nickname: string, avatar: string, ws: WebS
   // 单发：告知该客户端自己的座位号（避免前端靠昵称猜测自己是谁）
   sendToWs(ws, { type: 'joined', roomId, playerIndex: 0 });
   broadcastRoom(room, { type: 'roomUpdate', room: getRoomInfo(room), players: getRoomInfo(room).players });
+  // 通知所有大厅客户端：出现了一个新房间
+  broadcastRoomList();
 
   console.log('[Server] Room ' + roomId + ' created by ' + room.players[0].name);
   return room;
@@ -119,7 +121,9 @@ function joinRoom(roomId: string, msg: any, ws: WebSocket): Room | null {
     rejoinMatch = room.players.findIndex(p => p.playerId === playerId && p.roomId === roomId);
   }
   if (rejoinMatch < 0) {
-    rejoinMatch = room.players.findIndex(p => p.name === playerName && p.roomId === roomId);
+    // 同名重连仅在该玩家"当前离线"时成立，避免把同名在线玩家误判为重连而踢掉
+    // （默认昵称都是"玩家"，不及时加 disconnectedAt 判断会互相顶替座位）
+    rejoinMatch = room.players.findIndex(p => p.name === playerName && p.roomId === roomId && p.disconnectedAt !== undefined);
   }
   if (rejoinMatch >= 0) {
     const old = room.players[rejoinMatch];
@@ -154,6 +158,7 @@ function joinRoom(roomId: string, msg: any, ws: WebSocket): Room | null {
       // 重新编号
       oldRoom.players.forEach((p, i) => { p.playerIndex = i; });
       broadcastRoom(oldRoom, { type: 'roomUpdate', room: getRoomInfo(oldRoom), players: getRoomInfo(oldRoom).players });
+      broadcastRoomList();
       console.log('[Server] Removed player ' + existingPlayer.name + ' from old room ' + existingPlayer.roomId);
     }
   }
@@ -180,6 +185,8 @@ function joinRoom(roomId: string, msg: any, ws: WebSocket): Room | null {
   // 单发：告知该客户端自己的座位号
   sendToWs(ws, { type: 'joined', roomId, playerIndex });
   broadcastRoom(room, { type: 'roomUpdate', room: getRoomInfo(room), players: getRoomInfo(room).players });
+  // 通知所有大厅客户端：该房间人数 +1
+  broadcastRoomList();
   return room;
 }
 
@@ -202,6 +209,8 @@ function leaveRoom(ws: WebSocket): void {
   if (room.players.length === 0) {
     rooms.delete(room.id);
     console.log('[Server] Room ' + room.id + ' deleted (empty after leave)');
+    // 通知大厅：该房间已消失
+    broadcastRoomList();
     return;
   }
 
@@ -212,6 +221,8 @@ function leaveRoom(ws: WebSocket): void {
     }
   });
   broadcastRoom(room, { type: 'roomUpdate', room: getRoomInfo(room), players: getRoomInfo(room).players });
+  // 通知大厅：该房间人数 -1
+  broadcastRoomList();
   void before;
 }
 
@@ -237,6 +248,8 @@ function markDisconnected(ws: WebSocket): void {
   // 广播最新的房间状态（其他玩家能看到该玩家"离线"标记）
   broadcastRoom(room, { type: 'roomUpdate', room: getRoomInfo(room), players: getRoomInfo(room).players });
   broadcastRoom(room, { type: 'playerOffline', playerIndex: player.playerIndex, playerName: player.name });
+  // 大厅房间人数不变，但保持列表一致（含离线占位），顺手刷新
+  broadcastRoomList();
 }
 
 // 定期清理：超过宽限期的离线玩家才真正从房间移除
@@ -265,6 +278,8 @@ function cleanupDisconnectedPlayers() {
           }
         });
         broadcastRoom(room, { type: 'roomUpdate', room: getRoomInfo(room), players: getRoomInfo(room).players });
+        // 有玩家被清理出房间，大厅列表需同步（人数减少）
+        broadcastRoomList();
       }
     }
   }
@@ -602,6 +617,27 @@ function broadcastRoom(room: Room, data: any): void {
       player.ws.send(serialized);
     }
   }
+}
+
+// 向所有已连接客户端广播最新的"大厅房间列表"。
+// 这样任何人创建/加入/退出房间时，其他停留在大厅的玩家能实时看到，
+// 不再需要等自己主动 getRooms。
+function broadcastRoomList(): void {
+  const roomList: any[] = [];
+  rooms.forEach((room) => {
+    roomList.push({
+      id: room.id,
+      playerCount: room.players.length,
+      maxPlayers: 4,
+      gameState: room.session?.state || 'waiting',
+    });
+  });
+  const payload = JSON.stringify({ type: 'roomList', rooms: roomList });
+  wss.clients.forEach((ws: WebSocket) => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(payload);
+    }
+  });
 }
 
 // ============================================

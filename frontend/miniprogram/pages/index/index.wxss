@@ -59,3 +59,15 @@
 .content-overlay { position: absolute; bottom: 0; left: 0; right: 0; padding: 40rpx 30rpx 30rpx; z-index: 2; text-align: center; pointer-events: auto; }
 .btn-rules { background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; box-shadow: 0 8rpx 24rpx rgba(37,99,235,0.3); margin-top: 20rpx; height: 80rpx; font-size: 28rpx; }
 .btn-rules .btn-icon { font-size: 32rpx; }
+
+/* 右上角刷新按钮 */
+.header-right { display: flex; align-items: center; gap: 16rpx; }
+.refresh-btn {
+  width: 56rpx; height: 56rpx; border-radius: 50%;
+  background: rgba(255,255,255,0.12);
+  display: flex; align-items: center; justify-content: center;
+}
+.refresh-btn:active { background: rgba(255,255,255,0.25); }
+.refresh-icon { font-size: 34rpx; color: #ffd700; line-height: 1; }
+.refresh-btn.spinning .refresh-icon { animation: spin 0.7s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

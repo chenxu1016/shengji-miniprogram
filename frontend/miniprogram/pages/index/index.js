@@ -13,7 +13,8 @@ Page({
     roomList: [],
     joinRoomId: '',
     myNickname: '',
-    myAvatar: ''
+    myAvatar: '',
+    refreshing: false
   },
 
   onLoad(options) {
@@ -116,7 +117,7 @@ Page({
       var rooms = (msg.rooms || []).map(function(r) {
         return { id: r.id, playerCount: r.playerCount, maxPlayers: r.maxPlayers, gameState: r.gameState };
       });
-      this.setData({ connected: true, roomList: rooms });
+      this.setData({ connected: true, roomList: rooms, refreshing: false });
     }.bind(this));
 
 
@@ -240,6 +241,21 @@ Page({
 
   onAbout: function() {
     wx.showToast({ title: '升级扑克 v1.0 在线版', icon: 'none' });
+  },
+
+  // 右上角"刷新"按钮：手动向服务器拉取最新房间列表
+  onRefreshRooms: function() {
+    if (!wsClient || !wsClient.isConnected()) {
+      wx.showToast({ title: '服务器未连接', icon: 'none' });
+      return;
+    }
+    if (this.data.refreshing) return;
+    this.setData({ refreshing: true });
+    wsClient.send({ type: 'getRooms' });
+    // 兜底：若 800ms 内未收到 roomList，也停止旋转动画
+    setTimeout(function() {
+      if (this.data.refreshing) this.setData({ refreshing: false });
+    }.bind(this), 800);
   },
 
   // 切回前台时，若已掉线立即重连（修复：切后台再回来变成离线、别人无法准备）

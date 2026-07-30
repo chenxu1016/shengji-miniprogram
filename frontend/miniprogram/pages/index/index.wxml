@@ -14,7 +14,12 @@
     <view class="lobby-card">
       <view class="card-header">
         <text class="card-title">在线房间</text>
-        <text class="room-count">共 {{roomList.length}} 间</text>
+        <view class="header-right">
+          <text class="room-count">共 {{roomList.length}} 间</text>
+          <view class="refresh-btn {{refreshing ? 'spinning' : ''}}" wx:if="{{!inRoom}}" bindtap="onRefreshRooms">
+            <text class="refresh-icon">↻</text>
+          </view>
+        </view>
       </view>
 
       <!-- 微信头像/昵称同步（进入大厅即可设置，房间内实时同步给所有人） -->
