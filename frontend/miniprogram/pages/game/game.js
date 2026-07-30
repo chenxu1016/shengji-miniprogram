@@ -2,6 +2,33 @@
 var levelNames = {two:"2",three:"3",four:"4",five:"5",six:"6",seven:"7",eight:"8",nine:"9",ten:"10",jack:"J",queen:"Q",king:"K",ace:"A"};
 var suitNames = {spade:"黑桃",heart:"红桃",club:"梅花",diamond:"方块",none:"无",null:"无"};
 
+// ============ 手牌排序（发牌后按升级规则排列）============
+// 分组优先级：1大王 2小王 3级牌 4主花色 5副牌
+// 组内：先按花色（黑桃>红桃>梅花>方块），同花色按点数 A>K>Q>...>2
+// 同花色同点数自然相邻 → 对子/拖拉机自动靠在一起
+var VALUE_RANK = {big_joker:99,small_joker:98,ace:14,king:13,queen:12,jack:11,ten:10,nine:9,eight:8,seven:7,six:6,five:5,four:4,three:3,two:2};
+var SUIT_RANK = {spade:4,heart:3,club:2,diamond:1,none:0};
+
+function _handGroup(c, trump, level) {
+  if (c.value === "big_joker") return 1;
+  if (c.value === "small_joker") return 2;
+  if (level && c.value === level) return 3;          // 级牌（当前级别的所有牌）
+  if (trump && c.suit === trump) return 4;           // 主花色（非级牌非王）
+  return 5;                                           // 副牌
+}
+
+function sortHandByRule(hand, trumpSuit, level) {
+  if (!hand || !hand.length) return hand;
+  var trump = (trumpSuit && trumpSuit !== "none") ? trumpSuit : null;
+  return hand.slice().sort(function(a, b) {
+    var ag = _handGroup(a, trump, level), bg = _handGroup(b, trump, level);
+    if (ag !== bg) return ag - bg;                    // 小组排前（大王最左）
+    var as = SUIT_RANK[a.suit] || 0, bs = SUIT_RANK[b.suit] || 0;
+    if (as !== bs) return bs - as;                    // 黑桃优先排最左
+    return (VALUE_RANK[b.value] || 0) - (VALUE_RANK[a.value] || 0);  // 大点排前
+  });
+}
+
 // Helper: Get first letter of name as initial (uppercase)
 function getInitial(name) {
   if (!name) return '?';
@@ -305,9 +332,12 @@ Page({
   // fromAdoption: true=来自 onLoad 采纳（标记已发牌完成，避免重入时再播）
   _animateDeal: function(s, fromAdoption) {
     var me = s.players ? s.players[this.data.myIndex] : null;
-    var fullHand = (me && me.hand) ? me.hand.map(function(c) {
+    // 先按升级规则排序（大王→小王→级牌→主花色→副牌），再逐张发，发完即有序
+    var rawHand = (me && me.hand) ? me.hand : [];
+    var sortedHand = sortHandByRule(rawHand, s.trumpSuit, s.level);
+    var fullHand = sortedHand.map(function(c) {
       return { card: c, display: c.display || c.toString(), selected: false, playable: true, red: c.suit === "diamond" || c.suit === "heart" };
-    }) : [];
+    });
     var total = fullHand.length || 25;
     var self = this;
     var stepMs = 500;  // 每张牌 500ms（用户要求"0.5秒发一张"），25 张 = 12.5s 明显可见
@@ -496,7 +526,9 @@ Page({
     var myHand = [];
     var me = s.players ? s.players[this.data.myIndex] : null;
     if (me && me.hand) {
-      myHand = me.hand.map(function(c) {
+      // 按升级规则排序（大王→小王→级牌→主花色→副牌），每组内 A>K>...>2，对子自动相邻
+      var sorted = sortHandByRule(me.hand, s.trumpSuit, s.level);
+      myHand = sorted.map(function(c) {
         return {
           card: c,
           display: c.display || c.toString(),
