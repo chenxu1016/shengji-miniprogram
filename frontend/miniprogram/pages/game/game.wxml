@@ -102,14 +102,32 @@
       <view class="opp opp-top">
         <view class="opp-avatar">{{oppTop.initial}}</view>
         <text class="opp-count">{{oppTop.count}}张</text>
+        <view class="opp-bid-chips" wx:if="{{oppTop.bidSuit}}">
+          <view class="opp-bid-label">已亮</view>
+          <view class="opp-bid-chip lit {{oppTop.bidSuitClass}}">
+            <text class="opp-bid-chip-label">{{oppTop.bidLabel}}</text>
+          </view>
+        </view>
       </view>
       <view class="opp opp-left">
         <view class="opp-avatar">{{oppLeft.initial}}</view>
         <text class="opp-count">{{oppLeft.count}}张</text>
+        <view class="opp-bid-chips" wx:if="{{oppLeft.bidSuit}}">
+          <view class="opp-bid-label">已亮</view>
+          <view class="opp-bid-chip lit {{oppLeft.bidSuitClass}}">
+            <text class="opp-bid-chip-label">{{oppLeft.bidLabel}}</text>
+          </view>
+        </view>
       </view>
       <view class="opp opp-right">
         <view class="opp-avatar">{{oppRight.initial}}</view>
         <text class="opp-count">{{oppRight.count}}张</text>
+        <view class="opp-bid-chips" wx:if="{{oppRight.bidSuit}}">
+          <view class="opp-bid-label">已亮</view>
+          <view class="opp-bid-chip lit {{oppRight.bidSuitClass}}">
+            <text class="opp-bid-chip-label">{{oppRight.bidLabel}}</text>
+          </view>
+        </view>
       </view>
 
       <!-- 中央出牌区（按绝对座位 0-3 显示） -->

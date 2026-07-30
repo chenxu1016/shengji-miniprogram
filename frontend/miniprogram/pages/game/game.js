@@ -692,10 +692,38 @@ Page({
   _oppInfo: function(s, absIdx) {
     var rp = this.data.roomPlayers[absIdx];
     var count = (s.players && s.players[absIdx]) ? s.players[absIdx].hand.length : 25;
+    // 找该玩家最后一次非 pass 的叫分（亮主）
+    var bidInfo = this._getOppBidInfo(s, absIdx);
     return {
       initial: rp ? (rp.initial || getInitial(rp.nickname || rp.name)) : '?',
-      count: count
+      count: count,
+      bidSuit: bidInfo.suit,
+      bidLabel: bidInfo.label,
+      bidSuitClass: bidInfo.cls
     };
+  },
+
+  // 从 bidHistory 中找指定玩家最后一次非 pass 的叫分（亮主）
+  _getOppBidInfo: function(s, absIdx) {
+    var none = { suit: null, label: null, cls: null };
+    if (!s.bidHistory || !s.bidHistory.length) return none;
+    var suitMap = {
+      big_joker:   { label: "大", cls: "suit-joker" },
+      small_joker: { label: "小", cls: "suit-joker" },
+      spade:       { label: "♠", cls: "suit-spade" },
+      heart:       { label: "♥", cls: "suit-heart" },
+      club:        { label: "♣", cls: "suit-club" },
+      diamond:     { label: "♦", cls: "suit-diamond" }
+    };
+    for (var i = s.bidHistory.length - 1; i >= 0; i--) {
+      var b = s.bidHistory[i];
+      if (b.player === absIdx && b.bid !== "pass" && b.suit) {
+        var m = suitMap[b.suit];
+        if (m) return { suit: b.suit, label: m.label, cls: m.cls };
+        return none;
+      }
+    }
+    return none;
   },
 
   _updateTrickArea: function(s) {

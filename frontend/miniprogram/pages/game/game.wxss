@@ -367,13 +367,13 @@ page {
   white-space: nowrap;
 }
 
-/* 第2行：牌桌区 - 顶部条下方到底部 220rpx 之间（给操作栏 80 + 手牌 140 留位置） */
+/* 第2行：牌桌区 - 顶部条下方到底部 160rpx 之间（给操作栏 60 + 手牌 100 留位置） */
 .table-area {
   position: absolute;
   top: 76rpx;
   left: 0;
   right: 0;
-  bottom: 220rpx;
+  bottom: 160rpx;
   overflow: hidden;
 }
 
@@ -427,6 +427,61 @@ page {
   padding: 0 8rpx;
   border-radius: 10rpx;
 }
+
+/* 对手亮牌区 - 头像下方一组小 chip，显示该玩家最后叫的主花色 */
+.opp-bid-chips {
+  display: flex;
+  align-items: center;
+  gap: 3rpx;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1rpx solid rgba(255, 215, 0, 0.35);
+  border-radius: 10rpx;
+  padding: 2rpx 6rpx;
+  margin-top: 2rpx;
+  box-shadow: 0 1rpx 4rpx rgba(0, 0, 0, 0.4);
+}
+
+.opp-bid-label {
+  font-size: 14rpx;
+  color: rgba(255, 215, 0, 0.75);
+  font-weight: bold;
+  letter-spacing: 1rpx;
+}
+
+.opp-bid-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28rpx;
+  height: 28rpx;
+  background: linear-gradient(180deg, #2a2a2a, #1a1a1a);
+  border: 1.5rpx solid #555;
+  border-radius: 5rpx;
+  flex-shrink: 0;
+}
+
+.opp-bid-chip.lit {
+  background: linear-gradient(180deg, #fde68a, #fbbf24);
+  border-color: #fbbf24;
+  box-shadow: 0 0 6rpx rgba(251, 191, 36, 0.6);
+}
+
+.opp-bid-chip .opp-bid-chip-label {
+  font-size: 16rpx;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.opp-bid-chip.suit-spade .opp-bid-chip-label { color: #d1d5db; }
+.opp-bid-chip.suit-spade.lit .opp-bid-chip-label { color: #1f2937; }
+.opp-bid-chip.suit-heart .opp-bid-chip-label { color: #fca5a5; }
+.opp-bid-chip.suit-heart.lit .opp-bid-chip-label { color: #b91c1c; }
+.opp-bid-chip.suit-club .opp-bid-chip-label { color: #86efac; }
+.opp-bid-chip.suit-club.lit .opp-bid-chip-label { color: #14532d; }
+.opp-bid-chip.suit-diamond .opp-bid-chip-label { color: #93c5fd; }
+.opp-bid-chip.suit-diamond.lit .opp-bid-chip-label { color: #1e3a8a; }
+.opp-bid-chip.suit-joker .opp-bid-chip-label { color: #fde68a; }
+.opp-bid-chip.suit-joker.lit .opp-bid-chip-label { color: #92400e; }
 
 /* 中央出牌区 - 绝对定位在 table-area 中央 */
 .trick-area {
@@ -639,17 +694,17 @@ page {
   }
 }
 
-/* 第3行：操作栏 - 固定 80rpx，绝对定位在手牌上方 */
+/* 第3行：操作栏 - 固定 60rpx，绝对定位在手牌上方 */
 .action-bar {
   position: absolute;
-  bottom: 140rpx;
+  bottom: 100rpx;
   left: 0;
   right: 0;
-  height: 80rpx;
+  height: 60rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 14rpx;
+  gap: 12rpx;
   padding: 0 16rpx;
   background: rgba(0,0,0,0.4);
   flex-wrap: nowrap;
@@ -659,11 +714,11 @@ page {
 
 .op-btn {
   margin: 0;
-  padding: 0 24rpx;
-  height: 60rpx;
-  line-height: 60rpx;
-  font-size: 24rpx;
-  border-radius: 30rpx;
+  padding: 0 20rpx;
+  height: 44rpx;
+  line-height: 44rpx;
+  font-size: 22rpx;
+  border-radius: 22rpx;
   background: rgba(255,255,255,0.15);
   color: #fff;
   border: none;
@@ -683,17 +738,17 @@ page {
   text-align: center;
 }
 
-/* 第4行：手牌 - 绝对定位贴底 140rpx（永远可见，不被 flex 计算挤掉） */
+/* 第4行：手牌 - 绝对定位贴底 100rpx（永远可见，不被 flex 计算挤掉） */
 .hand-area {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 140rpx;
+  height: 100rpx;
   width: 100%;
   box-sizing: border-box;
   display: block;
-  padding: 10rpx 16rpx;
+  padding: 6rpx 16rpx;
   background: rgba(0,0,0,0.4);
   overflow-x: auto;
   overflow-y: hidden;
@@ -713,27 +768,27 @@ page {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 58rpx;
-  height: 110rpx;
-  margin-right: -34rpx;
+  width: 44rpx;
+  height: 82rpx;
+  margin-right: -24rpx;
   background: #fff;
-  border: 2rpx solid #cbd5e1;
-  border-radius: 8rpx;
-  font-size: 24rpx;
+  border: 1.5rpx solid #cbd5e1;
+  border-radius: 6rpx;
+  font-size: 22rpx;
   font-weight: bold;
   color: #111;
   flex-shrink: 0;
   position: relative;
   z-index: 1;
-  box-shadow: 0 1rpx 3rpx rgba(0,0,0,0.3);
+  box-shadow: 0 1rpx 2rpx rgba(0,0,0,0.3);
 }
 
 .hand-card.red { color: #dc2626; }
 
 .hand-card.selected {
-  transform: translateY(-22rpx);
+  transform: translateY(-18rpx);
   border-color: #f59e0b;
-  box-shadow: 0 4rpx 10rpx rgba(245,158,11,0.5);
+  box-shadow: 0 3rpx 8rpx rgba(245,158,11,0.5);
   z-index: 10;
 }
 
