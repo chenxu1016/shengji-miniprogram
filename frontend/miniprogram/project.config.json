@@ -33,8 +33,14 @@
   "packOptions": {
     "include": [],
     "ignore": [
-      { "type": "glob", "value": "**/*.bak*" },
-      { "type": "glob", "value": "**/*_temp.js" }
+      {
+        "type": "glob",
+        "value": "**/*.bak*"
+      },
+      {
+        "type": "glob",
+        "value": "**/*_temp.js"
+      }
     ]
   },
   "simulatorPluginLibVersion": {},
@@ -42,5 +48,6 @@
   "editorSetting": {
     "tabSize": 2,
     "tabIndent": "insertSpaces"
-  }
+  },
+  "testRoot": "minitest/"
 }
