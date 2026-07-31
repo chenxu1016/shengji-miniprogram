@@ -407,13 +407,13 @@ page {
   white-space: nowrap;
 }
 
-/* 第2行：牌桌区 - 顶部条下方到底部 140rpx 之间（给操作栏 60 + 手牌 80 留位置） */
+/* 第2行：牌桌区 - 顶部条下方到底部 124rpx 之间（给操作栏 60 + 手牌 64 留位置） */
 .table-area {
   position: absolute;
   top: 96rpx;
   left: 0;
   right: 0;
-  bottom: 172rpx;          /* action-bar 60 + hand-area 112 */
+  bottom: 124rpx;          /* action-bar 60 + hand-area 64 */
   overflow: hidden;
 }
 
@@ -428,7 +428,7 @@ page {
 }
 
 .opp-top {
-  top: 8rpx;
+  top: 50rpx;
   left: 50%;
   transform: translateX(-50%);
 }
@@ -466,6 +466,31 @@ page {
   background: rgba(0,0,0,0.4);
   padding: 0 8rpx;
   border-radius: 10rpx;
+}
+
+/* 对手手牌：一排"背面牌"扇，直观显示该玩家手里有一叠牌（不透露牌面，符合对局规则） */
+.opp-hand {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  height: 22rpx;
+  margin-top: 3rpx;
+}
+
+.opp-back {
+  width: 14rpx;
+  height: 20rpx;
+  margin-right: -8rpx;
+  border-radius: 2rpx;
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+  border: 1rpx solid rgba(255,255,255,0.55);
+  box-shadow: 0 1rpx 2rpx rgba(0,0,0,0.35);
+  flex-shrink: 0;
+}
+
+.opp-back:first-child {
+  margin-left: 0;
 }
 
 /* 对手亮牌区 - 头像下方一组小 chip，显示该玩家最后叫的主花色 */
@@ -568,11 +593,11 @@ page {
   z-index: 2;
 }
 
-/* 发牌遮罩 - 顶部条状横幅，不遮挡牌桌与发牌过程 */
+/* 发牌遮罩 - 顶部细横幅，只占顶部一小条，不遮挡对手与手牌 */
 .dealing-overlay {
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 72rpx;
+  height: 44rpx;
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -580,7 +605,7 @@ page {
   gap: 14rpx;
   background: rgba(0, 0, 0, 0.62);
   z-index: 15;
-  border-bottom: 1rpx solid rgba(251, 191, 36, 0.4);
+  border-bottom: 1rpx solid rgba(251, 191, 36, 0, 0.4);
 }
 
 .dealing-overlay .dealing-spinner {
@@ -712,21 +737,21 @@ page {
   flex-shrink: 0;
 }
 
-/* 翻牌动画：每张新牌从下方飞入 + 翻面 */
+/* 翻牌动画：每张新牌从顶部"牌堆"飞入手中，清晰呈现逐张发牌 */
 .hand-card.dealing-in {
-  animation: dealFlyIn 0.4s ease-out backwards;
+  animation: dealFlyIn 0.45s ease-out backwards;
 }
 
 @keyframes dealFlyIn {
   0% {
-    transform: translateX(-200rpx) translateY(-100rpx) rotate(-180deg) scale(0.3);
+    transform: translateY(-320rpx) translateX(-40rpx) scale(0.5) rotate(-12deg);
     opacity: 0;
   }
   60% {
     opacity: 1;
   }
   100% {
-    transform: translateX(0) translateY(0) rotate(0) scale(1);
+    transform: translateY(0) translateX(0) scale(1) rotate(0);
     opacity: 1;
   }
 }
@@ -734,7 +759,7 @@ page {
 /* 第3行：操作栏 - 固定 60rpx，绝对定位在手牌上方 */
 .action-bar {
   position: absolute;
-  bottom: 112rpx;          /* 紧贴 hand-area 上方 */
+  bottom: 64rpx;          /* 紧贴 hand-area 上方（hand-area 高 64rpx） */
   left: 0;
   right: 0;
   height: 60rpx;
@@ -781,14 +806,14 @@ page {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 112rpx;
+  height: 64rpx;
   width: 100%;
   box-sizing: border-box;
   display: block;
-  padding: 4rpx 8rpx;
+  padding: 3rpx 4rpx;
   background: linear-gradient(180deg, rgba(20, 40, 20, 0.92), rgba(0, 0, 0, 0.85));
   border-top: 1.5rpx solid rgba(255, 215, 0, 0.35);
-  overflow-x: auto;
+  overflow-x: hidden;
   overflow-y: hidden;
   white-space: nowrap;
   -webkit-overflow-scrolling: touch;
@@ -809,25 +834,25 @@ page {
   flex-direction: column;
   align-items: center;
   justify-content: space-between;
-  width: 62rpx;
-  height: 100rpx;
-  margin-right: -8rpx;          /* 缩小重叠，让每张牌至少露 54rpx 完整牌面 */
-  padding: 2rpx 0;
+  width: 34rpx;                /* 缩小：25 张×(34-8)=650rpx，单排即可放下，不再横向滚动 */
+  height: 48rpx;
+  margin-right: -8rpx;          /* 重叠，让每张牌至少露 26rpx 牌面 */
+  padding: 1rpx 0;
   background: #fff;
-  border: 1.5rpx solid #cbd5e1;
-  border-radius: 5rpx;
+  border: 1rpx solid #cbd5e1;
+  border-radius: 3rpx;
   flex-shrink: 0;
   position: relative;
   z-index: 1;
-  box-shadow: 0 1rpx 2rpx rgba(0,0,0,0.35);
+  box-shadow: 0 1rpx 1rpx rgba(0,0,0,0.35);
   overflow: hidden;
 }
 
 /* 顶小字（普通牌显示小写花色，JOKER 显示"JOKER"红斜体） */
 .hand-card-top {
   width: 100%;
-  font-size: 14rpx;
-  line-height: 16rpx;
+  font-size: 10rpx;
+  line-height: 12rpx;
   text-align: center;
   font-weight: bold;
   font-style: italic;
@@ -837,9 +862,9 @@ page {
 
 .hand-card.joker .hand-card-top {
   color: #dc2626;
-  font-size: 11rpx;
-  line-height: 13rpx;
-  letter-spacing: 0.5rpx;
+  font-size: 9rpx;
+  line-height: 11rpx;
+  letter-spacing: 0.3rpx;
 }
 
 /* 中间：数字 + 小花色 */
@@ -850,43 +875,43 @@ page {
   gap: 1rpx;
   font-weight: bold;
   line-height: 1;
-  margin-top: -2rpx;
+  margin-top: -1rpx;
 }
 
 .hand-card-rank {
-  font-size: 24rpx;
-  line-height: 24rpx;
+  font-size: 16rpx;
+  line-height: 18rpx;
 }
 
 .hand-card-suit-small {
-  font-size: 14rpx;
-  line-height: 14rpx;
+  font-size: 11rpx;
+  line-height: 11rpx;
   margin-left: 1rpx;
 }
 
 .hand-card.joker .hand-card-rank {
-  font-size: 20rpx;
-  line-height: 20rpx;
+  font-size: 14rpx;
+  line-height: 14rpx;
 }
 
 .hand-card.joker .hand-card-suit-small {
-  font-size: 12rpx;
-  line-height: 12rpx;
+  font-size: 10rpx;
+  line-height: 10rpx;
 }
 
 /* 底大花色（占牌底 1/3 高度，参考图） */
 .hand-card-bottom {
   width: 100%;
-  font-size: 30rpx;
-  line-height: 32rpx;
+  font-size: 18rpx;
+  line-height: 20rpx;
   text-align: center;
   font-weight: bold;
-  margin-bottom: -2rpx;
+  margin-bottom: -1rpx;
 }
 
 .hand-card.joker .hand-card-bottom {
-  font-size: 22rpx;
-  line-height: 24rpx;
+  font-size: 15rpx;
+  line-height: 16rpx;
 }
 
 /* 红色花色（红桃、方块、大小王主显示） */
@@ -903,7 +928,7 @@ page {
 }
 
 .hand-card.selected {
-  transform: translateY(-14rpx);
+  transform: translateY(-10rpx);
   border-color: #f59e0b;
   border-width: 2rpx;
   box-shadow: 0 4rpx 10rpx rgba(245,158,11,0.6);

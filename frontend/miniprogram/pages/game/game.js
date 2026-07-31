@@ -33,7 +33,7 @@ function _rankChar(value) {
 function cardToHandItem(c, idx) {
   if (!c) return null;
   var isJoker = (c.value === "big_joker" || c.value === "small_joker");
-  var topLabel = isJoker ? "JOKER" : _suitChar(c.suit);
+  var topLabel = isJoker ? "王" : _suitChar(c.suit);
   var rank = isJoker ? (c.value === "big_joker" ? "大" : "小") : _rankChar(c.value);
   var sChar = isJoker ? (c.value === "big_joker" ? "\u2665" : "\u2660") : _suitChar(c.suit);  // 大王♥ 小王♠
   return {
@@ -275,13 +275,14 @@ Page({
             reverseCountdownActive: false
           });
 
-          // 决定是否播发牌动画：本会话首次进入且在叫分/反主/出牌阶段（牌已发）才播
+          // 决定是否播发牌动画：本会话首次进入、且处于叫分/反主阶段（牌刚发完）才播逐张动画
+          // 进入时若已在出牌/结算阶段，直接刷新 UI（不重播发牌）
           var alreadyShownKey = "dealingShown_" + (sess.id || roomId);
           var alreadyShown = wx.getStorageSync(alreadyShownKey);
-          if (!alreadyShown && sess.players && sess.players[this.data.myIndex]
+          var st = sess.state;
+          if (!alreadyShown && (st === "bidding" || st === "reverse") && sess.players && sess.players[this.data.myIndex]
               && sess.players[this.data.myIndex].hand && sess.players[this.data.myIndex].hand.length > 0) {
             console.log("[Game] 首次进入会话，播放发牌动画 + 15s反牌倒计时");
-            wx.setStorageSync(alreadyShownKey, "1");
             this.setData({
               dealing: true,
               dealingText: "正在发牌...",
@@ -292,11 +293,11 @@ Page({
               trickCards: [null, null, null, null],
               hasPlayedCards: false
             });
-            // 200ms 后启动动画（等首屏渲染完成）
+            // 200ms 后启动动画（等首屏渲染完成）；dealingShown 由 _animateDeal 播完时置位
             setTimeout(function() { self._animateDeal(sess, true); }, 200);
           } else {
-            // 已有发牌动画的痕迹（再次进入/重连），直接走 refreshUI
-            console.log("[Game] 本会话发牌动画已播过，直接刷新UI");
+            // 已播过发牌动画，或已进入出牌/结算阶段：直接走 refreshUI
+            console.log("[Game] 本会话发牌动画已播过/或非发牌阶段，直接刷新UI");
             this.refreshUI();
           }
         }
@@ -376,9 +377,8 @@ Page({
     console.log("[Game] gameStart", msg);
     this.session = msg.session;
     wx.setStorageSync("gameSession", JSON.stringify(msg.session));
-    // 记录"已播过发牌动画"，避免 onLoad 采纳 session 时再播一遍
-    var alreadyShownKey = "dealingShown_" + (msg.session.id || msg.room && msg.room.id || this.data.roomId);
-    wx.setStorageSync(alreadyShownKey, "1");
+    // 注意：dealingShown 标记改到 _animateDeal 播完时才置位，避免提前置位导致
+    // onLoad 采纳 session 时误判"已播过"而跳过逐张发牌动画
 
     this.setData({
       gameStarted: true,
@@ -412,6 +412,9 @@ Page({
     var fullHand = sortedHand.map(function(c, i) { return cardToHandItem(c, i); });
     var total = fullHand.length || 25;
     var self = this;
+    // 防重入：同一会话只播一次，避免 _onGameStart 与 onLoad 采纳重复触发
+    if (self._dealAnimating) return;
+    self._dealAnimating = true;
     var stepMs = 500;  // 每张牌 500ms（用户要求"0.5秒发一张"），25 张 = 12.5s 明显可见
 
     // 发牌一开始就把“可亮/可反主花色”点亮到中间色条（满足“发牌过程中色条亮起”的需求）
@@ -428,7 +431,9 @@ Page({
     var k = 0;
     function next() {
       if (k >= total) {
-        // 全部发完：启动 15 秒反牌倒计时
+        // 全部发完：标记"已播过发牌动画"，启动 15 秒反牌倒计时
+        self._dealAnimating = false;
+        wx.setStorageSync("dealingShown_" + (s.id || self.data.roomId), "1");
         self.setData({
           dealing: false,
           dealingDone: total,
@@ -809,9 +814,14 @@ Page({
     var count = (s.players && s.players[absIdx]) ? s.players[absIdx].hand.length : 25;
     // 找该玩家最后一次非 pass 的叫分（亮主）
     var bidInfo = this._getOppBidInfo(s, absIdx);
+    // 背面牌扇：用一组下标渲染对应数量的"牌背"，直观显示该玩家手里有一叠牌
+    var n = Math.min(count, 17);
+    var backs = [];
+    for (var b = 0; b < n; b++) backs.push(b);
     return {
       initial: rp ? (rp.initial || getInitial(rp.nickname || rp.name)) : '?',
       count: count,
+      backs: backs,
       bidSuit: bidInfo.suit,
       bidLabel: bidInfo.label,
       bidSuitClass: bidInfo.cls

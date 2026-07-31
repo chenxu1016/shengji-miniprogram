@@ -103,6 +103,9 @@
       <view class="opp opp-top">
         <view class="opp-avatar">{{oppTop.initial}}</view>
         <text class="opp-count">{{oppTop.count}}张</text>
+        <view class="opp-hand">
+          <view class="opp-back" wx:for="{{oppTop.backs}}" wx:key="*this"></view>
+        </view>
         <view class="opp-bid-chips" wx:if="{{oppTop.bidSuit}}">
           <view class="opp-bid-label">已亮</view>
           <view class="opp-bid-chip lit {{oppTop.bidSuitClass}}">
@@ -113,6 +116,9 @@
       <view class="opp opp-left">
         <view class="opp-avatar">{{oppLeft.initial}}</view>
         <text class="opp-count">{{oppLeft.count}}张</text>
+        <view class="opp-hand">
+          <view class="opp-back" wx:for="{{oppLeft.backs}}" wx:key="*this"></view>
+        </view>
         <view class="opp-bid-chips" wx:if="{{oppLeft.bidSuit}}">
           <view class="opp-bid-label">已亮</view>
           <view class="opp-bid-chip lit {{oppLeft.bidSuitClass}}">
@@ -123,6 +129,9 @@
       <view class="opp opp-right">
         <view class="opp-avatar">{{oppRight.initial}}</view>
         <text class="opp-count">{{oppRight.count}}张</text>
+        <view class="opp-hand">
+          <view class="opp-back" wx:for="{{oppRight.backs}}" wx:key="*this"></view>
+        </view>
         <view class="opp-bid-chips" wx:if="{{oppRight.bidSuit}}">
           <view class="opp-bid-label">已亮</view>
           <view class="opp-bid-chip lit {{oppRight.bidSuitClass}}">
