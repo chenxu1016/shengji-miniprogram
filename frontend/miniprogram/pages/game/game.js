@@ -581,7 +581,18 @@ Page({
 
   _onError: function(msg) {
     console.error("[Game] error", msg);
-    wx.showToast({title: msg.message||"错误", icon:"none"});
+    // 兼容 message 可能是对象/数字/null 的情况（之前直接传对象会被 WeChat 强制 toString 成 "[object Object]"）
+    var raw = msg && msg.message;
+    var title;
+    if (raw == null) {
+      title = "错误";
+    } else if (typeof raw === "string") {
+      title = raw;
+    } else {
+      try { title = JSON.stringify(raw); } catch (e) { title = "错误"; }
+    }
+    if (!title) title = "错误";
+    wx.showToast({title: title, icon:"none"});
   },
 
   _onPlayerOffline: function(msg) {

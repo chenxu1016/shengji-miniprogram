@@ -407,13 +407,13 @@ page {
   white-space: nowrap;
 }
 
-/* 第2行：牌桌区 - 顶部条下方到底部 124rpx 之间（给操作栏 60 + 手牌 64 留位置） */
+/* 第2行：牌桌区 - 顶部条下方到底部 132rpx 之间（给操作栏 60 + 手牌 72 留位置） */
 .table-area {
   position: absolute;
   top: 96rpx;
   left: 0;
   right: 0;
-  bottom: 124rpx;          /* action-bar 60 + hand-area 64 */
+  bottom: 132rpx;          /* action-bar 60 + hand-area 72 */
   overflow: hidden;
 }
 
@@ -427,22 +427,24 @@ page {
   z-index: 2;
 }
 
+/* 顶部对手：放在 top-bar 下方、牌桌区上沿，避免被顶栏挡住 */
 .opp-top {
-  top: 50rpx;
+  top: 6rpx;
   left: 50%;
   transform: translateX(-50%);
 }
 
+/* 左右对手：放在垂直中线偏下一些，给顶部对手和中央出牌区留空间 */
 .opp-left {
-  top: 50%;
-  left: 20rpx;
-  transform: translateY(-50%);
+  top: 240rpx;
+  left: 10rpx;
+  transform: none;
 }
 
 .opp-right {
-  top: 50%;
-  right: 20rpx;
-  transform: translateY(-50%);
+  top: 240rpx;
+  right: 10rpx;
+  transform: none;
 }
 
 .opp-avatar {
@@ -474,15 +476,17 @@ page {
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  height: 22rpx;
-  margin-top: 3rpx;
+  height: 32rpx;
+  margin-top: 4rpx;
+  max-width: 320rpx;
+  overflow: hidden;
 }
 
 .opp-back {
-  width: 14rpx;
-  height: 20rpx;
-  margin-right: -8rpx;
-  border-radius: 2rpx;
+  width: 18rpx;
+  height: 28rpx;
+  margin-right: -10rpx;        /* 加大重叠，能显示更多张 */
+  border-radius: 3rpx;
   background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
   border: 1rpx solid rgba(255,255,255,0.55);
   box-shadow: 0 1rpx 2rpx rgba(0,0,0,0.35);
@@ -756,13 +760,13 @@ page {
   }
 }
 
-/* 第3行：操作栏 - 固定 60rpx，绝对定位在手牌上方 */
+/* 第3行：操作栏 - 固定 56rpx，绝对定位在手牌上方 */
 .action-bar {
   position: absolute;
-  bottom: 64rpx;          /* 紧贴 hand-area 上方（hand-area 高 64rpx） */
+  bottom: 72rpx;          /* 紧贴 hand-area 上方（hand-area 高 72rpx） */
   left: 0;
   right: 0;
-  height: 60rpx;
+  height: 56rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -800,13 +804,13 @@ page {
   text-align: center;
 }
 
-/* 第4行：手牌 - 绝对定位贴底 80rpx（更紧凑，25张不滚） */
+/* 第4行：手牌 - 绝对定位贴底 72rpx，再缩小牌型让 25 张更宽松 */
 .hand-area {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 64rpx;
+  height: 72rpx;
   width: 100%;
   box-sizing: border-box;
   display: block;
@@ -834,9 +838,9 @@ page {
   flex-direction: column;
   align-items: center;
   justify-content: space-between;
-  width: 34rpx;                /* 缩小：25 张×(34-8)=650rpx，单排即可放下，不再横向滚动 */
-  height: 48rpx;
-  margin-right: -8rpx;          /* 重叠，让每张牌至少露 26rpx 牌面 */
+  width: 28rpx;                /* 再缩：25 张×(28-6)=550rpx，单排可见，留余量 */
+  height: 56rpx;
+  margin-right: -6rpx;         /* 减少重叠，给牌面更多呼吸空间 */
   padding: 1rpx 0;
   background: #fff;
   border: 1rpx solid #cbd5e1;

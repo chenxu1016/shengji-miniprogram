@@ -121,12 +121,14 @@ class Bot {
             toPlay = [hand[0]];
           } else {
             // 跟牌：有同组（主牌组/副牌花色）就跟，否则垫一张
+            // 主牌 = 大小王 + 当前 level 的级牌 + 主花色非级牌。修复：原本硬编码 'four' 当主牌，
+            // 已改为按 level 判断（与 server 端的 Card.isTrump 一致）。
+            const level = s.level;
+            const isTrump = c => c.value === 'big_joker' || c.value === 'small_joker'
+              || c.value === level || c.suit === s.trumpSuit;
             const lead = trick[0].cards[0];
-            const leadIsTrump = ['big_joker', 'small_joker', 'four'].includes(lead.value) || lead.suit === s.trumpSuit;
-            const sameGroup = hand.filter(c => {
-              const isTrump = ['big_joker', 'small_joker', 'four'].includes(c.value) || c.suit === s.trumpSuit;
-              return leadIsTrump ? isTrump : (!isTrump && c.suit === lead.suit);
-            });
+            const leadIsTrump = isTrump(lead);
+            const sameGroup = hand.filter(c => leadIsTrump ? isTrump(c) : (!isTrump(c) && c.suit === lead.suit));
             toPlay = sameGroup.length ? [sameGroup[0]] : [hand[0]];
           }
           this.send({ type: 'playCards', cards: toPlay.map(c => ({ suit: c.suit, value: c.value })) });

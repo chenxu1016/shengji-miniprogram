@@ -123,7 +123,9 @@ export class Card implements ICard {
   /** 是否为主牌 (给定主花色和当前等级) */
   isTrump(trumpSuit: Suit | null, level: CardValue): boolean {
     if (this.value === CardValue.BIG_JOKER || this.value === CardValue.SMALL_JOKER) return true;
-    if (this.value === CardValue.FOUR) return true;
+    // 级牌（当前等级的牌，无论花色）都算主牌。注意：原代码曾硬编码 `value === FOUR`，
+    // 把任意 4 当主牌——是已知 bug，已修正为按当前 level 判断。
+    if (level && this.value === level) return true;
     if (trumpSuit === Suit.NONE) return false;
     return this.suit === trumpSuit;
   }
