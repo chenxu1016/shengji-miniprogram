@@ -591,18 +591,25 @@ Page({
 
   _onError: function(msg) {
     console.error("[Game] error", msg);
-    // 兼容 message 可能是对象/数字/null 的情况（之前直接传对象会被 WeChat 强制 toString 成 "[object Object]"）
+    // 兼容 message 可能是对象/数字/null/数组的情况（之前直接传对象会被 WeChat 强制 toString 成 "[object Object]"）
+    // 这里做四层防护：raw 提取 → typeof 区分 → JSON.stringify → 最终 String()，确保任何形态都变可显示字符串
     var raw = msg && msg.message;
-    var title;
-    if (raw == null) {
-      title = "错误";
-    } else if (typeof raw === "string") {
-      title = raw;
-    } else {
-      try { title = JSON.stringify(raw); } catch (e) { title = "错误"; }
+    var title = "错误";
+    if (raw != null) {
+      if (typeof raw === "string") {
+        title = raw;
+      } else if (typeof raw === "number" || typeof raw === "boolean") {
+        title = String(raw);
+      } else {
+        try { title = JSON.stringify(raw); } catch (e) { title = "错误"; }
+      }
     }
     if (!title) title = "错误";
-    wx.showToast({title: title, icon:"none"});
+    // 终极兜底：toString 一次（防 message 数组/undefined/循环引用等）
+    try { title = String(title); } catch (e) { title = "错误"; }
+    // showToast 自身抛错也吞掉，避免阻塞流程
+    try { wx.showToast({title: title, icon:"none"}); }
+    catch (e) { console.error("[Game] showToast failed", e, "title=", title); }
   },
 
   _onPlayerOffline: function(msg) {
@@ -954,6 +961,19 @@ Page({
     if (!wsClient||!this.session) return;
     var sel = this.data.selectedCards;
     if (!sel||sel.length===0) { wx.showToast({title:"请选择要出的牌",icon:"none"}); return; }
+    // 前置校验：仅当轮到自己出牌时才发请求，避免给后端发无效请求触发 "[object Object]" 风格报错
+    var s = this.session;
+    if (s && s.state === "playing") {
+      var trick = s.currentTrick || [];
+      var expected = trick.length === 0
+        ? s.currentTrickWinner
+        : (trick[trick.length - 1].player + 1) % 4;
+      if (expected !== this.data.myIndex) {
+        wx.showToast({title: "还没轮到你出牌", icon:"none"}); return;
+      }
+    } else if (s && s.state !== "playing") {
+      wx.showToast({title: "当前不在出牌阶段", icon:"none"}); return;
+    }
     var cards = sel.map(function(h){return h.card;});
     wsClient.send({type:"playCards", cards:cards});
   },
