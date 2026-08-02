@@ -914,30 +914,40 @@ Page({
   },
 
   onBidPass: function() {
-    if (!wsClient||!this.session) return;
-    wsClient.send({type:"bid", bid:"pass"});
+    console.log("[Game] onBidPass clicked");
+    if (!wsClient) { wx.showToast({title:"未连接服务器",icon:"none"}); return; }
+    if (!this.session) { wx.showToast({title:"会话未就绪",icon:"none"}); return; }
+    var ok = wsClient.send({type:"bid", bid:"pass"});
+    if (!ok) { wx.showToast({title:"发送失败，请重试",icon:"none"}); return; }
   },
 
   onBidZero: function() {
-    if (!wsClient||!this.session) return;
+    console.log("[Game] onBidZero clicked");
+    if (!wsClient || !this.session) { wx.showToast({title:"会话未就绪",icon:"none"}); return; }
     wx.showActionSheet({
       itemList:["黑桃","红桃","梅花","方块"],
       success: function(res){
         var suits=["spade","heart","club","diamond"];
+        console.log("[Game] 亮主选 suit=", suits[res.tapIndex]);
         wsClient.send({type:"bid", bid:"0", suit:suits[res.tapIndex]});
-      }
+      },
+      fail: function() { console.log("[Game] 亮主 actionSheet 取消"); }
     });
   },
 
   // 数字叫分必须带主花色（后端强制校验）
   _bidWithSuit: function(bid) {
-    if (!wsClient || !this.session) return;
+    console.log("[Game] _bidWithSuit clicked, bid=", bid);
+    if (!wsClient || !this.session) { wx.showToast({title:"会话未就绪",icon:"none"}); return; }
     wx.showActionSheet({
       itemList: ["黑桃", "红桃", "梅花", "方块"],
       success: function(res) {
         var suits = ["spade", "heart", "club", "diamond"];
-        wsClient.send({ type: "bid", bid: bid, suit: suits[res.tapIndex] });
-      }
+        console.log("[Game]", bid + "分选 suit=", suits[res.tapIndex]);
+        var ok = wsClient.send({ type: "bid", bid: bid, suit: suits[res.tapIndex] });
+        if (!ok) { wx.showToast({title:"发送失败，请重试",icon:"none"}); }
+      },
+      fail: function() { console.log("[Game]", bid + "分 actionSheet 取消"); }
     });
   },
   onBidOne: function() { this._bidWithSuit("1"); },
