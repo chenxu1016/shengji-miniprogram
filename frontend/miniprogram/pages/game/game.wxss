@@ -424,14 +424,15 @@ page {
   flex-direction: column;
   align-items: center;
   gap: 4rpx;
-  z-index: 2;
+  z-index: 12;             /* 高于 reverse-overlay 之外的元素，但低于 reverse-overlay，避免被遮 */
 }
 
-/* 顶部对手：放在 top-bar 下方、牌桌区上沿，避免被顶栏挡住 */
+/* 顶部对手：放在 reverse-overlay（高 60rpx）下方，不被反牌倒计时条遮挡；z-index 高于 reverse-overlay */
 .opp-top {
-  top: 6rpx;
+  top: 64rpx;
   left: 50%;
   transform: translateX(-50%);
+  z-index: 20;
 }
 
 /* 左右对手：放在垂直中线偏下一些，给顶部对手和中央出牌区留空间 */

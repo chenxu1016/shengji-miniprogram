@@ -417,6 +417,12 @@ Page({
     self._dealAnimating = true;
     var stepMs = 500;  // 每张牌 500ms（用户要求"0.5秒发一张"），25 张 = 12.5s 明显可见
 
+    // 发牌一开始就把对手区、记分面板、亮主色条等 UI 全部渲染出来。
+    // 之前的实现这里直接进逐张动画循环，导致 oppTop/oppLeft/oppRight 一直是 undefined，
+    // 三个对手整局都看不见。refreshUI 只读 session 不会动 myHand（发牌循环自己逐张追加），
+    // 所以这里调用一次不会破坏发牌动画。
+    self._safeRefreshUI(s);
+
     // 发牌一开始就把“可亮/可反主花色”点亮到中间色条（满足“发牌过程中色条亮起”的需求）
     self._updateTrumpDisplay(s);
 
@@ -625,34 +631,20 @@ Page({
 
   refreshUI: function() {
     if (!this.session) return;
-    var s = this.session;
-    var myHand = [];
-    var me = s.players ? s.players[this.data.myIndex] : null;
-    if (me && me.hand) {
-      // 按升级规则排序（大王→小王→级牌→主花色→副牌），每组内 A>K>...>2，对子自动相邻
-      var sorted = sortHandByRule(me.hand, s.trumpSuit, s.level);
-      // 保留已选中的标记（出牌阶段用户可能已选中过牌）
-      var prevSelected = {};
-      (this.data.myHand || []).forEach(function(it, i) {
-        if (it && it.selected && it.card) {
-          prevSelected[it.card.suit + "_" + it.card.value] = true;
-        }
-      });
-      myHand = sorted.map(function(c, i) {
-        var item = cardToHandItem(c, i);
-        if (prevSelected[c.suit + "_" + c.value]) {
-          item.selected = true;
-        }
-        return item;
-      });
-    }
+    this._safeRefreshUI(this.session);
+  },
+
+  // 安全的局部刷新：只更新对手区、记分面板、亮主色条、状态文本等“外壳”数据，
+  // 不动 myHand（避免覆盖发牌动画的逐张追加过程）。可在发牌/反主倒计时期间随时调用。
+  _safeRefreshUI: function(s) {
+    if (!s) s = this.session;
+    if (!s) return;
     var myIdx = this.data.myIndex;
     var isBidding = s.state === "bidding";
     var isReverse = s.state === "reverse";
     var isPlaying = s.state === "playing";
     var myBidTurn = isBidding && s.currentBidderIndex === myIdx;
     var myReverseTurn = isReverse && s.currentBidderIndex === myIdx;
-    // 出牌轮次：墩内无人出牌时轮到 currentTrickWinner，否则是上一家的下一位
     var myPlayTurn = false;
     if (isPlaying) {
       var trick = s.currentTrick || [];
@@ -666,8 +658,6 @@ Page({
     var bidScoreText = (s.bidScore > 0 ? s.bidScore + "分" : "-");
 
     this.setData({
-      myHand: myHand,
-      myHandCount: myHand.length,
       trumpText: trumpText,
       levelText: levelText,
       bidScoreText: bidScoreText,
@@ -678,14 +668,14 @@ Page({
       myPlayTurn: myPlayTurn,
       waitingText: this._getWaitingText(s),
       currentPlayerIndex: s.currentBidderIndex,
-      p1Count: s.players&&s.players[1]?s.players[1].hand.length:25,
-      p2Count: s.players&&s.players[2]?s.players[2].hand.length:25,
-      p3Count: s.players&&s.players[3]?s.players[3].hand.length:25,
+      p1Count: s.players && s.players[1] ? s.players[1].hand.length : 25,
+      p2Count: s.players && s.players[2] ? s.players[2].hand.length : 25,
+      p3Count: s.players && s.players[3] ? s.players[3].hand.length : 25,
       oppTop: this._oppInfo(s, (myIdx + 2) % 4),
       oppLeft: this._oppInfo(s, (myIdx + 3) % 4),
       oppRight: this._oppInfo(s, (myIdx + 1) % 4),
-      teamAScore: s.teamLevels?s.teamLevels[myIdx % 2]:0,
-      teamBScore: s.teamLevels?s.teamLevels[1 - (myIdx % 2)]:0
+      teamAScore: s.teamLevels ? s.teamLevels[myIdx % 2] : 0,
+      teamBScore: s.teamLevels ? s.teamLevels[1 - (myIdx % 2)] : 0
     });
     this._updateTrickArea(s);
     this._updateScorePanel(s);

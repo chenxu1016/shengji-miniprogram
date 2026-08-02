@@ -190,7 +190,7 @@
         <button class="op-btn primary" bindtap="onPlayConfirm">出牌</button>
         <button class="op-btn" bindtap="onClearSelection">重选</button>
       </block>
-      <text class="turn-hint" wx:if="{{!showBidActions && !showReverseActions && !showPlayActions}}">{{waitingText}}</text>
+      <text class="turn-hint" wx:if="{{!showBidActions && !showReverseActions && !showPlayActions && !reverseCountdownActive}}">{{waitingText}}</text>
     </view>
 
     <!-- 手牌区（用普通 view 替代 scroll-view，避免被 flex 父容器压成 0 高度） -->
