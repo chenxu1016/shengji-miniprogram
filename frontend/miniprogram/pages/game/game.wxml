@@ -13,7 +13,7 @@
 
   <view class="lobby-stage" wx:if="{{!gameStarted && !showReconnecting}}">
     <view class="table-title">升级 · 四人桌</view>
-    
+
     <view class="table-center">
       <!-- 北 - 玩家3 (index 2) -->
       <view class="player-seat seat-top" wx:if="{{roomPlayers[2]}}">
@@ -24,7 +24,7 @@
         <view class="seat-status {{roomPlayers[2].ready ? 'ready' : 'waiting'}}">{{roomPlayers[2].ready ? '✓已准备' : '等待中'}}</view>
         <view class="seat-cards">{{p2Count}}张</view>
       </view>
-      
+
       <!-- 西 - 玩家4 (index 3) -->
       <view class="player-seat seat-left" wx:if="{{roomPlayers[3]}}">
         <view class="seat-avatar">
@@ -34,7 +34,7 @@
         <view class="seat-status {{roomPlayers[3].ready ? 'ready' : 'waiting'}}">{{roomPlayers[3].ready ? '✓已准备' : '等待中'}}</view>
         <view class="seat-cards">{{p3Count}}张</view>
       </view>
-      
+
       <!-- 东 - 玩家1 (index 1) -->
       <view class="player-seat seat-right" wx:if="{{roomPlayers[1]}}">
         <view class="seat-avatar">
@@ -44,7 +44,7 @@
         <view class="seat-status {{roomPlayers[1].ready ? 'ready' : 'waiting'}}">{{roomPlayers[1].ready ? '✓已准备' : '等待中'}}</view>
         <view class="seat-cards">{{p1Count}}张</view>
       </view>
-      
+
       <!-- 南 - 自己 (myIndex) -->
       <view class="player-seat seat-bottom self-seat">
         <view class="seat-avatar self-avatar">
@@ -54,7 +54,7 @@
         <view class="seat-status ready">✓已准备</view>
       </view>
     </view>
-    
+
     <view class="center-buttons">
       <button class="action-btn ready-btn {{selfReady ? 'active' : ''}}" bindtap="onSelfReady">
         {{selfReady ? '✓已准备' : '准备'}}
@@ -97,49 +97,49 @@
       </view>
     </view>
 
-    <!-- 牌桌区：三家对手 + 中央出牌区 -->
-    <view class="table-area">
-      <!-- 上家(对家) / 左家 / 右家：refreshUI 里按 myIndex 算好 -->
-      <view class="opp opp-top">
-        <view class="opp-avatar">{{oppTop.initial}}</view>
-        <text class="opp-count">{{oppTop.count}}张</text>
-        <view class="opp-hand">
-          <view class="opp-back" wx:for="{{oppTop.backs}}" wx:key="*this"></view>
-        </view>
-        <view class="opp-bid-chips" wx:if="{{oppTop.bidSuit}}">
-          <view class="opp-bid-label">已亮</view>
-          <view class="opp-bid-chip lit {{oppTop.bidSuitClass}}">
-            <text class="opp-bid-chip-label">{{oppTop.bidLabel}}</text>
-          </view>
+    <!-- 三家对手：放到 game-stage 根容器内（不再被 table-area 高度裁剪），用百分比定位适配横竖屏 -->
+    <view class="opp opp-top">
+      <view class="opp-avatar">{{oppTop.initial}}</view>
+      <text class="opp-count">{{oppTop.count}}张</text>
+      <view class="opp-hand">
+        <view class="opp-back" wx:for="{{oppTop.backs}}" wx:key="*this"></view>
+      </view>
+      <view class="opp-bid-chips" wx:if="{{oppTop.bidSuit}}">
+        <view class="opp-bid-label">已亮</view>
+        <view class="opp-bid-chip lit {{oppTop.bidSuitClass}}">
+          <text class="opp-bid-chip-label">{{oppTop.bidLabel}}</text>
         </view>
       </view>
-      <view class="opp opp-left">
-        <view class="opp-avatar">{{oppLeft.initial}}</view>
-        <text class="opp-count">{{oppLeft.count}}张</text>
-        <view class="opp-hand">
-          <view class="opp-back" wx:for="{{oppLeft.backs}}" wx:key="*this"></view>
-        </view>
-        <view class="opp-bid-chips" wx:if="{{oppLeft.bidSuit}}">
-          <view class="opp-bid-label">已亮</view>
-          <view class="opp-bid-chip lit {{oppLeft.bidSuitClass}}">
-            <text class="opp-bid-chip-label">{{oppLeft.bidLabel}}</text>
-          </view>
+    </view>
+    <view class="opp opp-left">
+      <view class="opp-avatar">{{oppLeft.initial}}</view>
+      <text class="opp-count">{{oppLeft.count}}张</text>
+      <view class="opp-hand">
+        <view class="opp-back" wx:for="{{oppLeft.backs}}" wx:key="*this"></view>
+      </view>
+      <view class="opp-bid-chips" wx:if="{{oppLeft.bidSuit}}">
+        <view class="opp-bid-label">已亮</view>
+        <view class="opp-bid-chip lit {{oppLeft.bidSuitClass}}">
+          <text class="opp-bid-chip-label">{{oppLeft.bidLabel}}</text>
         </view>
       </view>
-      <view class="opp opp-right">
-        <view class="opp-avatar">{{oppRight.initial}}</view>
-        <text class="opp-count">{{oppRight.count}}张</text>
-        <view class="opp-hand">
-          <view class="opp-back" wx:for="{{oppRight.backs}}" wx:key="*this"></view>
-        </view>
-        <view class="opp-bid-chips" wx:if="{{oppRight.bidSuit}}">
-          <view class="opp-bid-label">已亮</view>
-          <view class="opp-bid-chip lit {{oppRight.bidSuitClass}}">
-            <text class="opp-bid-chip-label">{{oppRight.bidLabel}}</text>
-          </view>
+    </view>
+    <view class="opp opp-right">
+      <view class="opp-avatar">{{oppRight.initial}}</view>
+      <text class="opp-count">{{oppRight.count}}张</text>
+      <view class="opp-hand">
+        <view class="opp-back" wx:for="{{oppRight.backs}}" wx:key="*this"></view>
+      </view>
+      <view class="opp-bid-chips" wx:if="{{oppRight.bidSuit}}">
+        <view class="opp-bid-label">已亮</view>
+        <view class="opp-bid-chip lit {{oppRight.bidSuitClass}}">
+          <text class="opp-bid-chip-label">{{oppRight.bidLabel}}</text>
         </view>
       </view>
+    </view>
 
+    <!-- 牌桌区：中央出牌区 + 倒计时/发牌遮罩 -->
+    <view class="table-area">
       <!-- 中央出牌区（按绝对座位 0-3 显示） -->
       <view class="trick-area">
         <view class="trick-slot" wx:for="{{trickCards}}" wx:key="index" wx:if="{{item}}">

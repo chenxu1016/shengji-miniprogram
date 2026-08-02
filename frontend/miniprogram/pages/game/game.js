@@ -159,7 +159,11 @@ Page({
     // 反牌倒计时（发完牌后给其他人 15s 考虑反主）
     reverseCountdown: 0,
     reverseCountdownActive: false,
-    reverseCountdownTotal: 15
+    reverseCountdownTotal: 15,
+    // 三个对手的占位（首屏立刻可见，避免 _safeRefreshUI 触发前整局看不见）
+    oppTop: { initial: "?", count: 0, backs: [], bidSuit: null, bidLabel: "", bidSuitClass: "" },
+    oppLeft: { initial: "?", count: 0, backs: [], bidSuit: null, bidLabel: "", bidSuitClass: "" },
+    oppRight: { initial: "?", count: 0, backs: [], bidSuit: null, bidLabel: "", bidSuitClass: "" }
   },
 
   onLoad: function(options) {

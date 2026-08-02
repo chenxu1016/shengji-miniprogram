@@ -417,34 +417,34 @@ page {
   overflow: hidden;
 }
 
-/* 对手头像 - 四个角定位在 table-area 内部 */
+/* 对手头像 - 定位在 game-stage 根容器内（不再被 table-area 高度裁剪），
+   使用百分比定位适配横屏/竖屏，z-index 高于 top-bar/trick-area/reverse-overlay */
 .opp {
   position: absolute;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4rpx;
-  z-index: 12;             /* 高于 reverse-overlay 之外的元素，但低于 reverse-overlay，避免被遮 */
-}
-
-/* 顶部对手：放在 reverse-overlay（高 60rpx）下方，不被反牌倒计时条遮挡；z-index 高于 reverse-overlay */
-.opp-top {
-  top: 64rpx;
-  left: 50%;
-  transform: translateX(-50%);
   z-index: 20;
 }
 
-/* 左右对手：放在垂直中线偏下一些，给顶部对手和中央出牌区留空间 */
+/* 顶部对手：屏幕正上方居中（8% 处让位 status-bar / top-bar） */
+.opp-top {
+  top: 8%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* 左/右对手：屏幕垂直中线偏下 12%（避开中央出牌区，给手牌上方留位） */
 .opp-left {
-  top: 240rpx;
-  left: 10rpx;
+  top: 38%;
+  left: 2%;
   transform: none;
 }
 
 .opp-right {
-  top: 240rpx;
-  right: 10rpx;
+  top: 38%;
+  right: 2%;
   transform: none;
 }
 
