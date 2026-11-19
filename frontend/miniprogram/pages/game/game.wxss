@@ -766,9 +766,12 @@ page {
   .seat-toolbar.compact { gap: 4rpx; }
   .seat-toolbar.compact .seat-tool-btn { height: 30rpx; line-height: 30rpx; padding: 0 9rpx; font-size: 14rpx; border-radius: 15rpx; }
 
-  /* 牌桌分区：全部按高度百分比，避免横屏下溢出 */
+  /* 牌桌分区：手牌固定高度不被撑出屏幕，牌桌内部自己收缩 */
   .game-stage { overflow: hidden; }
   .felt { top: 52rpx; bottom: 128rpx; left: 10rpx; right: 10rpx; border-radius: 28rpx; }
+  /* 关键：table-zone 必须允许收缩且裁剪溢出的固定高度子元素，
+     否则座位/叫分栏的固定高度会把它撑开，把下方的 hand-area 顶出屏幕外 */
+  .table-zone { min-height: 0; overflow: hidden; flex: 1 1 0; }
 
   .hud-zone { flex: 0 0 15%; }
   .score-board { left: 10rpx; top: 2rpx; width: 210rpx; padding: 2rpx 8rpx; border-radius: 9rpx; }
@@ -860,27 +863,34 @@ page {
   .action-bar { gap: 7rpx; }
   .op-btn { width: 76rpx; height: 34rpx; line-height: 34rpx; font-size: 15rpx; border-radius: 17rpx; }
 
-  /* 手牌：横屏宽度富余，25 张基本一屏排开，无需横向滚动 */
-  .hand-area { flex: 0 0 23%; border-top-width: 1rpx; }
+  /* 手牌：固定最小高度，绝不被牌桌挤压出屏幕（多账号小窗口尤其重要） */
+  .hand-area {
+    flex: 0 0 auto;
+    height: 150rpx;
+    min-height: 150rpx;      /* 硬性下限：横屏窗口再矮也保留 150rpx 显示手牌 */
+    border-top-width: 1rpx;
+  }
+  .hand-scroll { height: 100%; }
   .hand-cards {
     width: max-content !important;
     min-width: 100%;
-    padding: 11rpx 12rpx 3rpx;
+    height: 100%;
+    padding: 8rpx 12rpx 6rpx;
   }
   .hand-card {
-    width: 44rpx;
-    height: 100%;          /* 随手牌区高度自适应，横屏不会溢出 */
-    margin-right: -18rpx;  /* 露出 26rpx */
+    width: 52rpx;
+    height: 130rpx;         /* 固定牌高，不再用 100%（父级塌陷时会变成 0） */
+    margin-right: -18rpx;  /* 露出 34rpx */
     border-radius: 6rpx;
     border-width: 1rpx;
   }
   .hand-card.group-start { margin-left: 8rpx; }
-  .card-corner { top: 3rpx; left: 3rpx; }
-  .corner-rank { font-size: 16rpx; line-height: 17rpx; }
-  .corner-suit { font-size: 12rpx; line-height: 13rpx; margin-top: 1rpx; }
-  .card-big { left: 3rpx; top: 28rpx; font-size: 19rpx; line-height: 21rpx; }
-  .hand-card.joker .corner-rank { font-size: 14rpx; }
-  .hand-card.joker .card-big { font-size: 15rpx; top: 30rpx; }
-  .hand-card.selected { transform: translateY(-10rpx); border-width: 2rpx; }
+  .card-corner { top: 5rpx; left: 4rpx; }
+  .corner-rank { font-size: 19rpx; line-height: 20rpx; }
+  .corner-suit { font-size: 15rpx; line-height: 16rpx; margin-top: 1rpx; }
+  .card-big { left: 4rpx; top: 42rpx; font-size: 24rpx; line-height: 26rpx; }
+  .hand-card.joker .corner-rank { font-size: 16rpx; }
+  .hand-card.joker .card-big { font-size: 18rpx; top: 46rpx; }
+  .hand-card.selected { transform: translateY(-12rpx); border-width: 2rpx; }
   .hand-edge { width: 20rpx; }
 }
