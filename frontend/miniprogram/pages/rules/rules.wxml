@@ -2,66 +2,74 @@
   <scroll-view scroll-y class="rules-scroll">
     <view class="rules-content">
       <text class="rules-title">升级游戏规则</text>
+      <text class="rule-text">（玩法简介 · 亮主/炒底规则 · 出牌规则 · 抠底倍数 · 升级情况 · 豆与积分）</text>
 
       <view class="rule-section">
         <text class="section-title">一、玩法简介</text>
         <text class="rule-text">牌数：2副牌，共108张，4个人游戏，每人25张，底牌8张。</text>
-        <text class="rule-text">分牌：升级游戏中5、10和K是分牌，5代表5分，10和K代表10分。</text>
-        <text class="rule-text">庄家：每一局牌都有一方担任庄家，庄家具有扣底牌和第一轮的首先出牌权。</text>
-        <text class="rule-text">对家：位置相对的玩家为同组（对家），互相合作。</text>
-        <text class="rule-text">级牌：升级游戏从打2开始不断升级，每局结束时根据闲家的得分确定升级情况。</text>
-        <text class="rule-text">主花色：发牌结束后，每方可以根据牌情翻出级牌，翻出的级牌花色即为主花色。</text>
-        <text class="rule-text">主牌：由大王和小王、级牌、主花色牌构成。</text>
-        <text class="rule-text">拖拉机：同花色的相邻两对或更多的对构成拖拉机。</text>
+        <text class="rule-text">分牌：5、10和K是分牌，5代表5分，10和K代表10分。</text>
+        <text class="rule-text">庄家：每一局都有一方担任庄家，庄家具有扣底牌和第一轮首先出牌权。第一局庄家由主方担任。</text>
+        <text class="rule-text">对家：位置相对的玩家为同组，庄家与其对家组成庄家方，另两人组成闲家方。第一局报主的那方为庄家，另一方为闲家；每局结束按结果确定下一局庄家。</text>
+        <text class="rule-text">级牌：从打2开始不断升级，当前庄家的级别就是级牌。例如庄家打2，则所有2都是主牌；升到K时K成为级牌。</text>
+        <text class="rule-text">主花色：发牌结束后每方都可根据牌情翻出级牌，最后翻出的级牌花色即为主花色，主花色牌都是主牌。</text>
+        <text class="rule-text">主牌：由大王、小王、级牌、主花色牌构成；其余都是副牌。</text>
+        <text class="rule-text">对牌：两张同点同花色的牌。拖拉机：同花色的相邻两对或更多对构成拖拉机。</text>
       </view>
 
       <view class="rule-section">
         <text class="section-title">二、带同颜色的王亮主叫牌</text>
-        <text class="rule-text">亮红桃、方片时候需要带一张大王亮；亮黑桃、梅花时候需要带一张小王亮。</text>
-        <text class="rule-text">闲家也可以帮庄家叫牌，但是如没有其他人反主，自己叫的牌不能自己反。</text>
-        <text class="rule-text">反主的时候同理，需要带两张级牌和对应的王反主。</text>
-        <text class="rule-text">无人亮主则换成打闲家的级牌，若仍然无人亮主，抽底牌确定主花色。</text>
+        <text class="rule-text">亮红桃、方片需要带一张大王亮；亮黑桃、梅花需要带一张小王亮。</text>
+        <text class="rule-text">闲家也可以帮庄家叫牌，但如没有其他人反主，自己叫的牌不能自己反。</text>
+        <text class="rule-text">反主同理，需要带两张级牌和对应的王反主。反主时级牌不分花色大小，即反了一对之后只能一对小王或大王反成无主。</text>
+        <text class="rule-text">确定庄家后，无人亮主则换成打闲家的级牌；若仍无人亮主，抽底牌，抽到的花色为主花色，谁手里有这张牌谁就是庄家。</text>
+        <text class="rule-text">抽底牌确认后，不能再反主、炒底。</text>
       </view>
 
       <view class="rule-section">
         <text class="section-title">三、反主规则</text>
-        <text class="rule-text">当庄家扣好底牌后，其他玩家按逆时针顺序有反主的机会。</text>
+        <text class="rule-text">当庄家扣好底牌后，其他玩家按逆时针顺序有反主的机会，即得到改变主牌和获取庄家所埋底牌的权限。</text>
         <text class="rule-text">反主后，反主方亮出的那种花色的牌为主牌。</text>
       </view>
 
       <view class="rule-section">
         <text class="section-title">四、出牌及牌大小规则</text>
-        <text class="rule-text">第一轮牌由庄家首先出牌，按照逆时针方向依次出牌。</text>
-        <text class="rule-text">同等大小的牌以先出者为大，必须跟出首家出的花色和张数。</text>
-        <text class="rule-text">单张：必须跟出该花色的单牌，没有可用其他花色副牌或主牌杀。</text>
-        <text class="rule-text">对子：必须跟出该花色的对子，没有该花色对子时需跟单张。</text>
-        <text class="rule-text">拖拉机：必须也跟出该花色的拖拉机。</text>
-        <text class="rule-text">甩牌：同种花色的副牌均为当前最大时，可一起打出。甩牌失败罚10分。</text>
+        <text class="rule-text">第一轮由庄家先出，按逆时针依次出牌。同等大小以先出者为大。非首家必须跟出首家所出花色和张数；没有该花色时可用主牌杀或垫其他花色。</text>
+        <text class="rule-text">1. 单张：首家出副牌单张，其他人必须跟该花色单牌；没有时可垫其他副牌或用主牌单张杀。</text>
+        <text class="rule-text">2. 对子：必须跟该花色对子；没有对子必须跟该花色单张；没有该花色牌可垫其他副牌或用主牌对子杀（两张主牌单张不能杀对子）。</text>
+        <text class="rule-text">3. 拖拉机：必须跟该花色拖拉机；没有则跟该花色对子，再没有则跟单张，总张数需与拖拉机一致。用主牌杀时，主牌也须是相同对数的拖拉机。</text>
+        <text class="rule-text">4. 甩牌：手上同种花色副牌均为当前最大时可一起打出。甩牌失败强制出导致失败的牌型中最小牌，并罚10分给对方；一局内每人前3次罚分，第4次起不再罚。</text>
+        <text class="rule-text">例如甩梅花55、梅花6，外面同花色有比55大的也有比6大的，则甩牌失败，强制出梅花6。</text>
+        <text class="rule-text">毙甩牌时主牌牌型要与副牌甩牌牌型全部对应；盖毙还要求对应牌型且最大牌大过先出的毙牌牌型。例：甩副牌AAKKQ99，主牌4455大王KK可毙；主牌6677833因拖拉机更大可盖毙。</text>
+        <text class="rule-text">抠底：一局结束时最后一轮由闲家获胜称为抠底，底牌中的分牌至少按2倍加到闲家得分中。</text>
+        <text class="rule-text">以后每轮出牌完毕，按每家牌的大小决定下一轮由谁先出。</text>
       </view>
 
       <view class="rule-section">
         <text class="section-title">五、抠底倍数</text>
         <text class="rule-text">单张抠底：底牌分数 × 2</text>
         <text class="rule-text">对子抠底：底牌分数 × 4</text>
-        <text class="rule-text">拖拉机抠底：底牌分数 ×（2的n次方），n为拖拉机张数</text>
-        <text class="rule-text">甩牌抠底：按甩牌中最大的牌型计算</text>
+        <text class="rule-text">拖拉机抠底：底牌分数 ×（2的n次方），n为拖拉机的张数</text>
+        <text class="rule-text">甩牌抠底：按甩牌中最大的牌型计算；若甩牌中有两对或两个拖拉机，仅按一对或拖拉机数最多的拖拉机计算，不累加。</text>
       </view>
 
       <view class="rule-section">
         <text class="section-title">六、升级情况</text>
-        <text class="rule-text">闲家抓分0 → 庄升3级</text>
-        <text class="rule-text">闲家抓分5-35 → 庄升2级</text>
-        <text class="rule-text">闲家抓分40-75 → 庄升1级</text>
-        <text class="rule-text">闲家抓分80-115 → 庄家上台/闲家上台</text>
-        <text class="rule-text">闲家抓分120-155 → 庄家下台/闲家上台</text>
-        <text class="rule-text">闲家抓分160-195 → 闲升2级</text>
-        <text class="rule-text">闲家抓分200以上 → 闲家升3级</text>
+        <text class="rule-text">闲家抓分 0 → 庄升3级</text>
+        <text class="rule-text">闲家抓分 5-35 → 庄升2级</text>
+        <text class="rule-text">闲家抓分 40-75 → 庄升1级</text>
+        <text class="rule-text">闲家抓分 80 → 庄家上台 / 闲家上台</text>
+        <text class="rule-text">闲家抓分 85-115 → 庄家下台 / 闲家上台</text>
+        <text class="rule-text">闲家抓分 120-155 → 闲升1级</text>
+        <text class="rule-text">闲家抓分 160-195 → 闲升2级</text>
+        <text class="rule-text">闲家抓分 200 → 闲升3级</text>
+        <text class="rule-text">闲家抓分 200分以上 → 闲家升3级，单局最多升3级</text>
       </view>
 
       <view class="rule-section">
         <text class="section-title">七、豆与积分</text>
-        <text class="rule-text">豆：联网版升级输赢除计算积分外，还需计算豆。每个场次底分不同。</text>
-        <text class="rule-text">积分：每局输赢都会计算玩家的积分，赢加输减，积分会影响等级。</text>
+        <text class="rule-text">服务费：每局游戏还会扣除一定量的豆作为服务费，在开始游戏后扣除。</text>
+        <text class="rule-text">豆：联网版升级输赢除计算积分外还需计算豆。每个场次底分不同，不同场次每局所得豆也有多有少，同时每场游戏收取一定数量的游戏豆。</text>
+        <text class="rule-text">积分：每局输赢都会计算玩家积分，赢加输减，积分会影响等级；单机版以经验代替积分。</text>
       </view>
     </view>
   </scroll-view>

@@ -6,6 +6,7 @@
   ],
   "window": {
     "navigationBarTitleText": "升级",
-    "backgroundColor": "#f0f0f0"
+    "backgroundColor": "#f0f0f0",
+    "pageOrientation": "auto"
   }
 }

@@ -38,6 +38,9 @@ export interface GameSession {
   bidScore: number;
   finalBidderIndex: number;
   finalSuit: Suit | null;
+  // true=庄家已锁定（后续局，由上一轮输赢决定），抢叫只能定花色不能抢庄；
+  // false=首局，谁先亮主谁定庄+定打几
+  dealerLocked: boolean;
   teamLevels: Map<number, number>;
   roundResult: RoundResult | null;
   config: GameConfig;
@@ -105,8 +108,9 @@ export function createGame(config: GameConfig = {}): GameSession {
     leadCards: null,
     leadType: null,
     bidScore: 0,
-    finalBidderIndex: -1,
+    finalBidderIndex: -1,   // 首局庄家未定，由抢叫（亮主）者坐庄
     finalSuit: null,
+    dealerLocked: false,    // 首局：抢叫定庄+定级数；后续局：庄已由上一轮决定
     teamLevels: new Map([[0, 0], [1, 0]]),
     roundResult: null,
     config,
@@ -159,15 +163,23 @@ export function makeBid(
     }
     // 亮主即定主：立即锁定花色并进入反主阶段（标准升级规则：谁亮主谁先定，他人可反主）
     session.bidScore = 0;
-    session.finalBidderIndex = playerIndex;
     session.finalSuit = suit;
     session.trumpSuit = suit;
-    session.level = getLevelFromTeamLevel(session.teamLevels.get(0) ?? 0);
-    session.log.push('玩家' + (playerIndex + 1) + ' 亮主' + getSuitName(suit));
+    if (!session.dealerLocked) {
+      // 首局：谁抢叫亮主，谁就是庄家，级数取该玩家所在队伍的级数
+      session.finalBidderIndex = playerIndex;
+      session.dealerLocked = true;
+      session.level = getLevelFromTeamLevel(session.teamLevels.get(playerIndex % 2) ?? 0);
+      session.log.push('玩家' + (playerIndex + 1) + ' 首局抢叫亮主' + getSuitName(suit) + '，坐庄打' + levelToName(session.level));
+    } else {
+      // 后续局：庄家已由上一轮输赢决定，抢叫只定花色，不抢庄
+      session.log.push('玩家' + (playerIndex + 1) + ' 亮主定花色' + getSuitName(suit) + '（庄家不变）');
+    }
     session.reverseActive = true;
     session.reverseTarget = suit;
     session.state = GameState.REVERSE;
-    session.currentBidderIndex = (playerIndex + 1) % 4;
+    // 逆时针给其他三家反牌机会（座位正向为 +1，逆时针为 +3）
+    session.currentBidderIndex = (playerIndex + 3) % 4;
     return { success: true };
   }
 
@@ -187,17 +199,24 @@ export function makeBid(
       return { success: true };
     }
     session.bidScore = bid === BidOption.PASS ? 0 : parseInt(bid);
-    session.finalBidderIndex = bidResult.finalBidder ?? session.bidState.highestBidder;
     session.finalSuit = bidResult.finalSuit ?? session.bidState.lastSuit;
     session.trumpSuit = session.finalSuit;
-    session.level = getLevelFromTeamLevel(session.teamLevels.get(0) ?? 0);
-
-    session.log.push('玩家' + (session.finalBidderIndex + 1) + ' 成为庄家,亮主' + getSuitName(session.trumpSuit!));
+    if (!session.dealerLocked) {
+      // 首局：叫分最高者坐庄，级数取庄家队级数
+      session.finalBidderIndex = bidResult.finalBidder ?? session.bidState.highestBidder;
+      session.dealerLocked = true;
+      session.level = getLevelFromTeamLevel(session.teamLevels.get(session.finalBidderIndex % 2) ?? 0);
+      session.log.push('玩家' + (session.finalBidderIndex + 1) + ' 首局叫分坐庄,亮主' + getSuitName(session.trumpSuit!));
+    } else {
+      // 后续局：庄家已由上一轮输赢决定，叫分只定花色，不抢庄
+      session.log.push('亮主定花色' + getSuitName(session.trumpSuit!) + '（庄家不变）');
+    }
 
     session.reverseActive = true;
     session.reverseTarget = session.trumpSuit!;
     session.state = GameState.REVERSE;
-    session.currentBidderIndex = (session.finalBidderIndex + 1) % 4;
+    // 逆时针给其他三家反牌机会
+    session.currentBidderIndex = (session.finalBidderIndex + 3) % 4;
   } else {
     session.currentBidderIndex = bidResult.newState.currentBidder;
   }
@@ -285,6 +304,10 @@ export function attemptReverse(
   if (playerIndex !== session.currentBidderIndex) {
     return { success: false, error: '不是玩家' + (playerIndex + 1) + '的反主回合' };
   }
+  // 「自己叫的牌不能自己反」：无人反主时，亮主者不能反掉自己刚定的主
+  if (playerIndex === session.finalBidderIndex) {
+    return { success: false, error: '自己亮的主不能自己反' };
+  }
 
   const player = session.players[playerIndex];
   const validOptions = getReverseOptions(player, session.reverseTarget, session.reversePairUsed);
@@ -316,7 +339,7 @@ export function attemptReverse(
     session.reverseActive = false;
     enterPlayingPhase(session);
   } else {
-    session.currentBidderIndex = (playerIndex + 1) % 4;
+    session.currentBidderIndex = (playerIndex + 3) % 4;
     if (session.currentBidderIndex === session.finalBidderIndex) {
       session.reverseActive = false;
       enterPlayingPhase(session);
@@ -342,7 +365,7 @@ export function skipReverse(
   }
 
   session.log.push('玩家' + (playerIndex + 1) + ' 不反主');
-  session.currentBidderIndex = (playerIndex + 1) % 4;
+  session.currentBidderIndex = (playerIndex + 3) % 4;
   if (session.currentBidderIndex === session.finalBidderIndex) {
     session.reverseActive = false;
     enterPlayingPhase(session);
@@ -424,6 +447,7 @@ function completeTrick(session: GameSession) {
 
   session.tricks.push({
     winner,
+    winnerTrickIdx,
     cards: session.currentTrick.map(t => t.cards),
     points: trickPoints,
   });
@@ -508,32 +532,23 @@ function endRound(session: GameSession) {
     }
   }
 
-  // Apply 抠底 (deduction) multiplier if follower wins last trick
-  let deductionMultiplier = 1;
-  if (session.holeCards && session.holeCards.length > 0) {
-    const lastTrickWinner = session.tricks.length > 0 ? 
-      session.tricks[session.tricks.length - 1].winner : -1;
-    
-    // Check if follower won last trick
-    const isFollowerWinningLastTrick = (lastTrickWinner !== session.finalBidderIndex && 
-                                         lastTrickWinner !== getPartnerIndex(session.finalBidderIndex));
-    
+  // 抠底：最后一轮由闲家赢时，底牌分数 × 牌型倍数「全额」加到闲家得分
+  let followerBonus = 0;
+  if (session.holeCards && session.holeCards.length > 0 && session.tricks.length > 0) {
+    const lastTrick = session.tricks[session.tricks.length - 1];
+    const lastWinner = lastTrick.winner;
+    const isFollowerWinningLastTrick = (lastWinner !== session.finalBidderIndex &&
+                                         lastWinner !== getPartnerIndex(session.finalBidderIndex));
     if (isFollowerWinningLastTrick) {
-      // Calculate hole card points
       let holePoints = 0;
-      for (const card of session.holeCards) {
-        holePoints += getPoints(card.value);
-      }
-      
-      // Determine multiplier based on last trick type
-      deductionMultiplier = calculateDeductionMultiplier(session.holeCards);
-      
-      // Add doubled points to follower
-      const bonusPoints = holePoints * (deductionMultiplier - 1);
-      leaderPoints -= bonusPoints;
-      if (leaderPoints < 0) leaderPoints = 0;
-      
-      session.log.push('抠底成功! 底牌分数: ' + holePoints + ', 倍数: ' + deductionMultiplier);
+      for (const card of session.holeCards) holePoints += getPoints(card.value);
+      // 倍数按「抠底那一手牌」的牌型算，不再错用 8 张底牌
+      const winningPlay = lastTrick.cards[lastTrick.winnerTrickIdx ?? 0] || [];
+      const multiplier = calculateDeductionMultiplier(winningPlay);
+      followerBonus = holePoints * multiplier;
+      session.followerPoints = followerBonus;
+      session.log.push('抠底成功! 底牌 ' + holePoints + '分, 抠底牌型 ' + winningPlay.length +
+        '张, 倍数 ×' + multiplier + ', 闲家加 ' + followerBonus + '分');
     }
   }
 
@@ -544,6 +559,7 @@ function endRound(session: GameSession) {
     session.level,
     true,
     session.holeCards,
+    followerBonus,
   );
   
   session.roundResult = roundResult;
@@ -590,13 +606,27 @@ function enterNewRound(session: GameSession) {
     }
   }
 
-  session.finalBidderIndex = (session.finalBidderIndex + 1) % 4;
-  session.dealerIndex = session.finalBidderIndex;
-  session.firstBidderIndex = (session.finalBidderIndex + 1) % 4;
-  session.currentBidderIndex = session.firstBidderIndex;
-  session.bidState = createBidState(session.firstBidderIndex);
+  // 庄家由上一轮输赢决定：newDealerTeam=0 庄家队继续坐庄，=1 闲家队上台
+  const prevTeam = session.finalBidderIndex % 2;
+  const nextDealerTeam = session.roundResult?.newDealerTeam === 1 ? 1 - prevTeam : prevTeam;
+  let newDealer: number;
+  if (nextDealerTeam === prevTeam) {
+    // 庄家队继续坐庄：轮到对家坐庄
+    newDealer = (session.finalBidderIndex + 2) % 4;
+  } else {
+    // 闲家队上台：由上局庄家的下家（属闲家队）坐庄
+    newDealer = (session.finalBidderIndex + 1) % 4;
+  }
+  session.finalBidderIndex = newDealer;
+  session.dealerIndex = newDealer;
+  session.level = getLevelFromTeamLevel(session.teamLevels.get(nextDealerTeam) ?? 0);
+  session.dealerLocked = true;   // 后续局：庄已锁定，抢叫只定花色
+  session.firstBidderIndex = newDealer;
+  session.currentBidderIndex = newDealer;
+  session.bidState = createBidState(newDealer);
 
   session.trumpSuit = null;
+  session.finalSuit = null;
   session.tricks = [];
   session.currentTrick = [];
   session.leadCards = null;
@@ -641,6 +671,34 @@ function redealSession(session: GameSession) {
   session.roundResult = null;
   session.state = GameState.BIDDING;
   session.log.push('四人全部过牌，重新发牌');
+}
+
+/**
+ * 庄家队 10 秒叫不起牌 → 换另一队上庄。
+ * 仅后续局（dealerLocked）有效：庄家队两人都没亮主时，由客户端倒计时到期触发。
+ * 换庄后庄家切到对门队，级数取新庄家队的级数，重新进入叫分阶段。
+ */
+export function switchDealerOnTimeout(session: GameSession): { success: boolean; error?: string } {
+  if (session.state !== GameState.BIDDING) {
+    return { success: false, error: '当前不在叫分阶段' };
+  }
+  if (!session.dealerLocked) {
+    return { success: false, error: '首局由抢叫定庄，不能换庄' };
+  }
+  if (session.trumpSuit) {
+    return { success: false, error: '已有人亮主，不能换庄' };
+  }
+  const oldDealer = session.finalBidderIndex;
+  // 换到对门队：庄家 +1 即为另一队
+  const newDealer = (oldDealer + 1) % 4;
+  session.finalBidderIndex = newDealer;
+  session.dealerIndex = newDealer;
+  session.level = getLevelFromTeamLevel(session.teamLevels.get(newDealer % 2) ?? 0);
+  session.firstBidderIndex = newDealer;
+  session.currentBidderIndex = newDealer;
+  session.bidState = createBidState(newDealer);
+  session.log.push('庄家队10秒叫不起牌，换玩家' + (newDealer + 1) + '上庄，打' + levelToName(session.level));
+  return { success: true };
 }
 
 function enterPlayingPhase(session: GameSession) {

@@ -5,8 +5,42 @@
  * - 断线后自动重连，恢复座位和准备状态
  */
 
-// Railway deployment URL
-var SERVER_URL = 'wss://shengji-backend-production.up.railway.app';
+// 服务器地址：
+// - 默认连本机后端 ws://localhost:8888（微信开发者工具模拟器可直接连，需先运行根目录 start-backend.cmd）
+// - 真机调试：在首页「服务器地址」填 ws://<电脑局域网IP>:8888，会写入 storage 并优先使用
+// - 线上 Railway 地址当前返回 404 Application not found，仅作为本地未启动时的备用尝试
+var DEFAULT_SERVER_URL = 'ws://localhost:8888';
+var BACKUP_SERVER_URL = 'wss://shengji-backend-production.up.railway.app';
+
+function readCustomServerUrl() {
+  try { return wx.getStorageSync('serverUrl') || ''; } catch (e) { return ''; }
+}
+
+function getServerUrl() {
+  return readCustomServerUrl() || DEFAULT_SERVER_URL;
+}
+
+function buildCandidates() {
+  var list = [];
+  var custom = readCustomServerUrl();
+  if (custom) list.push(custom);
+  if (list.indexOf(DEFAULT_SERVER_URL) < 0) list.push(DEFAULT_SERVER_URL);
+  if (list.indexOf(BACKUP_SERVER_URL) < 0) list.push(BACKUP_SERVER_URL);
+  return list;
+}
+
+// 切换服务器地址：保存配置 + 关掉旧连接。
+// 调用方随后重新加载页面，由 connectServer() 用新地址重建客户端并重新注册消息处理器。
+function setServerUrl(url) {
+  try {
+    if (url) wx.setStorageSync('serverUrl', url);
+    else wx.removeStorageSync('serverUrl');
+  } catch (e) {}
+  if (wsClient) {
+    try { wsClient.close(); } catch (e) {}
+    wsClient = null;
+  }
+}
 
 // 全局单例
 var wsClient = null;
@@ -17,7 +51,7 @@ var RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000, 30000];
 function createWsClient() {
   if (wsClient) return wsClient;
 
-  console.log('[WS] Creating client, connecting to:', SERVER_URL);
+  console.log('[WS] Creating client, connecting to:', getServerUrl());
 
   var self = {
     _socketTask: null,
@@ -34,6 +68,12 @@ function createWsClient() {
     _reconnectTimer: null,
     _connecting: false,
     _intentionalClose: false,
+    // 多候选地址：本地后端优先；本地没启动时自动尝试备用地址
+    _candidates: buildCandidates(),
+    _candidateIndex: 0,
+    _lockedUrl: '',       // 连通过一次后锁定该地址，之后断线只重连它
+    _everOpened: false,
+    _currentUrl: '',
     // 持久化的身份信息（用于断线重连后自动 rejoin）
     _savedName: '',
     _savedNickname: '',
@@ -68,8 +108,36 @@ function createWsClient() {
       if (opts.nickname !== undefined) this._savedNickname = opts.nickname;
       if (opts.avatar !== undefined) this._savedAvatar = opts.avatar;
       if (opts.playerId) this._savedPlayerId = opts.playerId;
-      if (opts.roomId) this._savedRoomId = opts.roomId;
+      if (opts.roomId !== undefined) this._savedRoomId = opts.roomId;
       if (typeof opts.myIndex === 'number' && opts.myIndex >= 0) this._savedMyIndex = opts.myIndex;
+    },
+
+    // 旁观态：站起后仍留在房间，但断线重连只能恢复旁观，不能自动占座
+    setSpectatorMode: function(flag) {
+      try {
+        if (flag) wx.setStorageSync('spectatorMode', '1');
+        else wx.removeStorageSync('spectatorMode');
+      } catch (e) {}
+    },
+
+    isSpectator: function() {
+      try {
+        var v = wx.getStorageSync('spectatorMode');
+        return v === '1' || v === 1 || v === true;
+      } catch (e) { return false; }
+    },
+
+    // 退出房间：清掉身份与对局缓存，防止重连时又自动 joinRoom
+    clearRoom: function() {
+      this._savedRoomId = '';
+      this._savedMyIndex = -1;
+      try {
+        wx.removeStorageSync('currentRoomId');
+        wx.removeStorageSync('myIndex');
+        wx.removeStorageSync('roomPlayers');
+        wx.removeStorageSync('gameSession');
+        wx.removeStorageSync('spectatorMode');
+      } catch (e) {}
     },
 
     getIdentity: function() {
@@ -116,6 +184,10 @@ function createWsClient() {
       return this._connected;
     },
 
+    getActiveUrl: function() {
+      return this._currentUrl || getServerUrl();
+    },
+
     // 暴露获取/创建稳定 playerId 的方法（断线重连用）
     getOrCreatePlayerId: function() {
       return getOrCreatePlayerId();
@@ -143,36 +215,44 @@ function createWsClient() {
      */
     _connect: function() {
       this._connecting = true;
+      var url = this._lockedUrl || this._candidates[Math.min(this._candidateIndex, this._candidates.length - 1)];
+      this._currentUrl = url;
+      console.log('[WS] Connecting to:', url);
       var socketTask = wx.connectSocket({
-        url: SERVER_URL,
+        url: url,
         success: function() { console.log('[WS] connectSocket called'); },
         fail: function(err) { console.error('[WS] connectSocket fail:', err); }
       });
       this._socketTask = socketTask;
 
       socketTask.onOpen(function() {
-        console.log('[WS] Socket OPEN');
+        console.log('[WS] Socket OPEN:', url);
         self._connected = true;
         self._connecting = false;
         self._reconnectAttempt = 0;
+        self._everOpened = true;
+        self._lockedUrl = url;
         // 调用所有 onConnect 回调
         self._connectCallbacks.forEach(function(fn) {
           try { fn(); } catch(e) { console.error('[WS] onConnect cb error', e); }
         });
 
-        // 自动重新加入房间（断线重连场景）
+        // 自动恢复房间：入座玩家 joinRoom，已站起的旁观者 observeRoom
         var ident = self.getIdentity();
         if (ident.roomId && ident.name) {
-          console.log('[WS] 自动重新加入房间', ident.roomId, 'as', ident.name, 'playerId=', ident.playerId);
+          var spectator = self.isSpectator();
+          console.log('[WS] 自动恢复房间', ident.roomId, 'as', ident.name,
+            'playerId=', ident.playerId, 'spectator=', spectator);
+          var joinMsg = {
+            type: spectator ? 'observeRoom' : 'joinRoom',
+            roomId: ident.roomId,
+            name: ident.name,
+            nickname: ident.nickname || '',
+            avatar: ident.avatar || '',
+            playerId: ident.playerId
+          };
           setTimeout(function() {
-            self._socketTask.send({ data: JSON.stringify({
-              type: 'joinRoom',
-              roomId: ident.roomId,
-              name: ident.name,
-              nickname: ident.nickname || '',
-              avatar: ident.avatar || '',
-              playerId: ident.playerId
-            })});
+            self._socketTask.send({ data: JSON.stringify(joinMsg) });
           }, 100);
         }
       });
@@ -181,6 +261,20 @@ function createWsClient() {
         try {
           var msg = JSON.parse(res.data);
           console.log('[WS] Received:', msg.type);
+          // joined 是后端下发的权威身份：座位号 + playerId。
+          // 统一在这里回写 storage，避免多开窗口共享 playerId 时互相顶替座位，
+          // 也让断线自动 rejoin 永远用同一个 ID。
+          if (msg.type === 'joined') {
+            if (msg.playerId) {
+              self._savedPlayerId = msg.playerId;
+              try { wx.setStorageSync('playerId', msg.playerId); } catch (e) {}
+            }
+            if (msg.roomId) self._savedRoomId = msg.roomId;
+            if (typeof msg.playerIndex === 'number' && msg.playerIndex >= 0) {
+              self._savedMyIndex = msg.playerIndex;
+              try { wx.setStorageSync('myIndex', String(msg.playerIndex)); } catch (e) {}
+            }
+          }
           if (self._messageHandlers && self._messageHandlers[msg.type]) {
             self._messageHandlers[msg.type].forEach(function(fn) {
               try { fn(msg); } catch (e) { console.error('[WS] Handler error', e); }
@@ -198,6 +292,15 @@ function createWsClient() {
         self._connecting = false;
 
         if (self._intentionalClose) return; // 主动关闭，不重连
+
+        // 从未连通过任何服务器：立即换下一个候选地址重试（不等退避计时器）。
+        // 这样「本地后端没启动」时会自动尝试备用地址，且不会一直弹「重连中」遮罩。
+        if (!self._everOpened && self._candidateIndex < self._candidates.length - 1) {
+          self._candidateIndex++;
+          console.log('[WS] 换用备用服务器:', self._candidates[self._candidateIndex]);
+          setTimeout(function() { self._connect(); }, 300);
+          return;
+        }
 
         // 触发 onDisconnect 回调（首次断开）
         if (wasConnected) {
@@ -251,5 +354,9 @@ function getOrCreatePlayerId() {
 module.exports = {
   createWsClient: createWsClient,
   getOrCreatePlayerId: getOrCreatePlayerId,
-  SERVER_URL: SERVER_URL
+  getServerUrl: getServerUrl,
+  setServerUrl: setServerUrl,
+  DEFAULT_SERVER_URL: DEFAULT_SERVER_URL,
+  BACKUP_SERVER_URL: BACKUP_SERVER_URL,
+  SERVER_URL: DEFAULT_SERVER_URL
 };

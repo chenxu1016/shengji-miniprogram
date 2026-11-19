@@ -1,5 +1,24 @@
 var wsClient = null;
 
+// 房间固定 4 个座位：即使还没坐满，也把空位渲染出来，一屏看清四人同桌状态
+function buildRoomSeats(players, myIndex) {
+  var seats = [];
+  for (var i = 0; i < 4; i++) {
+    var p = players[i];
+    if (p) {
+      seats.push(Object.assign({}, p, {
+        seatNo: i + 1,
+        isSelf: i === myIndex,
+        empty: false,
+        initial: p.initial || (p.name ? p.name.charAt(0).toUpperCase() : String(i + 1))
+      }));
+    } else {
+      seats.push({ seatNo: i + 1, isSelf: i === myIndex, empty: true, name: '', nickname: '', avatar: '', initial: '', ready: false });
+    }
+  }
+  return seats;
+}
+
 Page({
   data: {
     connected: false,
@@ -14,12 +33,20 @@ Page({
     joinRoomId: '',
     myNickname: '',
     myAvatar: '',
-    refreshing: false
+    refreshing: false,
+    serverUrl: '',
+    serverUrlInput: '',
+    roomSeats: buildRoomSeats([], -1),
+    autoStarting: false
   },
 
   onLoad(options) {
     // 好友通过分享卡片进入时携带的房间号，连上服务器后自动加入
     this._shareRoomId = (options && options.roomId) ? String(options.roomId) : '';
+    this._autoStartTimer = null;
+    this._lastNavAt = 0;
+    var wsUtil = require('../../utils/wsClient');
+    this.setData({ serverUrl: wsUtil.getServerUrl(), serverUrlInput: wsUtil.getServerUrl() });
     // Set default player name from WeChat
     let playerName = '玩家';
     try {
@@ -89,7 +116,8 @@ Page({
           roomPlayerCount: players.length,
           myIndex: selfIdx,
           selfReady: players[selfIdx] ? players[selfIdx].ready : false,
-          allReady: players.every(function(p) { return p.ready; })
+          allReady: players.length === 4 && players.every(function(p) { return p.ready; }),
+          roomSeats: buildRoomSeats(players, selfIdx)
         });
       }
     }.bind(this));
@@ -99,14 +127,28 @@ Page({
       console.log('[Index] joined:', msg);
       wx.setStorageSync('myIndex', String(msg.playerIndex));
       wx.setStorageSync('currentRoomId', msg.roomId);
+      if (msg.playerId) wx.setStorageSync('playerId', msg.playerId);
+      if (wsClient && wsClient.saveIdentity) {
+        wsClient.saveIdentity({ playerId: msg.playerId || '', roomId: msg.roomId, myIndex: msg.playerIndex });
+      }
       this.setData({ myIndex: msg.playerIndex, inRoom: true, currentRoomId: msg.roomId });
     }.bind(this));
 
     wsClient.onMessage('gameStart', function(msg) {
+      var self = this;
       console.log('[Index] Game starting...');
+      if (self._autoStartTimer) { clearTimeout(self._autoStartTimer); self._autoStartTimer = null; }
+      self.setData({ autoStarting: false });
+      var now = Date.now();
+      // 3s 内重复的 gameStart 只处理一次，避免重复压栈多个牌桌页
+      if (self._lastNavAt && now - self._lastNavAt < 3000) return;
+      self._lastNavAt = now;
       wx.setStorageSync('gameSession', JSON.stringify(msg.session));
-      wx.navigateTo({ url: '/pages/game/game?roomId=' + msg.room.id });
-    });
+      // 已经在牌桌页时只更新会话，由牌桌页自己处理 gameStart
+      var onGame = getCurrentPages().some(function(p) { return p.route === 'pages/game/game'; });
+      if (onGame) return;
+      wx.navigateTo({ url: '/pages/game/game?roomId=' + (msg.room && msg.room.id || self.data.currentRoomId) });
+    }.bind(this));
 
     wsClient.onMessage('error', function(msg) {
       wx.showToast({ title: msg.message || '错误', icon: 'none' });
@@ -138,12 +180,30 @@ Page({
       var myIdx = this.data.myIndex;
       var me = players.find(function(p) { return p.playerIndex === myIdx; });
       wx.setStorageSync('roomPlayers', JSON.stringify(players));
+      var canStart = !!msg.canStart || (players.length === 4 && players.every(function(p) { return p.ready; }));
       this.setData({
         roomPlayers: players,
         roomPlayerCount: players.length,
+        roomSeats: buildRoomSeats(players, myIdx),
         selfReady: me ? me.ready : false,
-        allReady: !!msg.allReady
+        allReady: canStart,
+        autoStarting: canStart
       });
+
+      // 兜底：后端正常情况下会立刻广播 gameStart；若 1.5s 内没收到（旧版服务端 /
+      // 消息丢失），客户端主动请求一次开局，保证「四人都准备 → 自动发牌」一定发生。
+      // 服务端 startGame 有 3s 去重，重复请求不会洗两次牌。
+      if (canStart && !this._autoStartTimer) {
+        var self = this;
+        this._autoStartTimer = setTimeout(function() {
+          self._autoStartTimer = null;
+          if (self._lastNavAt && Date.now() - self._lastNavAt < 4000) return;  // 已经进牌桌了
+          if (wsClient && wsClient.isConnected()) {
+            console.log('[Index] 未收到 gameStart，兜底请求 startGame');
+            wsClient.send({ type: 'startGame' });
+          }
+        }, 1500);
+      }
     }.bind(this));
   },
 
@@ -210,7 +270,23 @@ Page({
     wsClient.send({ type: 'startGame' });
   },
 
+  // ===== 服务器地址设置（开发者工具默认连本机 8888；真机填电脑局域网 IP）=====
+  onServerUrlInput: function(e) {
+    this.setData({ serverUrlInput: (e.detail.value || '').trim() });
+  },
+
+  onApplyServerUrl: function() {
+    var url = (this.data.serverUrlInput || '').trim();
+    var app = require('../../utils/wsClient');
+    app.setServerUrl(url);   // 留空 = 恢复默认 ws://localhost:8888
+    wx.showToast({ title: '已切换，正在重连', icon: 'none', duration: 1200 });
+    setTimeout(function() {
+      wx.reLaunch({ url: '/pages/index/index' });  // 重新加载以注册新连接的消息处理器
+    }, 500);
+  },
+
   onLeaveRoom: function() {
+    if (this._autoStartTimer) { clearTimeout(this._autoStartTimer); this._autoStartTimer = null; }
     if (wsClient) {
       wsClient.send({ type: 'leaveRoom' });
       // 清除身份信息（断线重连就不会再自动 rejoin 这个房间）
@@ -229,7 +305,9 @@ Page({
       roomPlayerCount: 0,
       myIndex: -1,
       selfReady: false,
-      allReady: false
+      allReady: false,
+      autoStarting: false,
+      roomSeats: buildRoomSeats([], -1)
     });
   },
 
@@ -263,6 +341,7 @@ Page({
     var app = require('../../utils/wsClient');
     var c = app.createWsClient();
     if (c.reconnectNow) c.reconnectNow();
+    this.setData({ serverUrl: c.getActiveUrl ? c.getActiveUrl() : app.getServerUrl() });
     // 回显已同步的微信昵称 / 头像
     var nick = wx.getStorageSync('playerNickname') || '';
     var av = wx.getStorageSync('playerAvatar') || '';

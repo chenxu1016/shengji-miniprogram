@@ -40,42 +40,42 @@ export function calculateLevelChange(
   return { leaderLevelUp, newDealerTeam };
 }
 
-export function calculateDeductionMultiplier(holeCards: Card[]): number {
-  if (!holeCards || holeCards.length === 0) return 2;
+/**
+ * 抠底倍数：按「抠底那一手牌」的牌型计算（不是按 8 张底牌）
+ * 单张 ×2 / 对子 ×4 / 拖拉机 ×2^牌张数 / 甩牌取其中最大牌型，多个对子或拖拉机不累加
+ */
+export function calculateDeductionMultiplier(playCards: Card[]): number {
+  if (!playCards || playCards.length === 0) return 2;
+  if (playCards.length === 1) return 2;
 
-  const valueCounts = new Map<CardValue, number>();
-  for (const c of holeCards) { valueCounts.set(c.value, (valueCounts.get(c.value) || 0) + 1); }
-
-  const pairCount = [...valueCounts.values()].filter(v => v >= 2).length;
-  const uniqueValues = valueCounts.size;
-
-  if (holeCards.length === 1) return 2;
-  if (pairCount === uniqueValues && holeCards.length % 2 === 0) {
-    return Math.pow(2, pairCount);
-  }
-  if (holeCards.length >= 4 && holeCards.length % 2 === 0) {
-    const order: CardValue[] = [CardValue.TWO, CardValue.THREE, CardValue.FOUR,
-      CardValue.FIVE, CardValue.SIX, CardValue.SEVEN,
-      CardValue.EIGHT, CardValue.NINE, CardValue.TEN,
-      CardValue.JACK, CardValue.QUEEN, CardValue.KING, CardValue.ACE];
-
-    const values = [...valueCounts.keys()];
-    values.sort((a, b) => order.indexOf(a) - order.indexOf(b));
-
-    let isConsecutive = true;
-    for (let j = 1; j < values.length; j++) {
-      if (order.indexOf(values[j]) !== order.indexOf(values[j - 1]) + 1) {
-        isConsecutive = false;
-        break;
-      }
-    }
-
-    if (isConsecutive && pairCount > 0) {
-      return Math.pow(2, pairCount);
-    }
+  const order: CardValue[] = [
+    CardValue.TWO, CardValue.THREE, CardValue.FOUR, CardValue.FIVE,
+    CardValue.SIX, CardValue.SEVEN, CardValue.EIGHT, CardValue.NINE,
+    CardValue.TEN, CardValue.JACK, CardValue.QUEEN, CardValue.KING, CardValue.ACE,
+  ];
+  // 同花色同点数 >=2 张视为「对」，连续点数的对子组成拖拉机
+  const bySuit = new Map<string, Map<CardValue, number>>();
+  for (const c of playCards) {
+    const s = String(c.suit);
+    if (!bySuit.has(s)) bySuit.set(s, new Map());
+    const m = bySuit.get(s)!;
+    m.set(c.value, (m.get(c.value) || 0) + 1);
   }
 
-  return 2;
+  let maxPatternLen = 1;   // 单张1 / 对子2 / 拖拉机 2k
+  for (const m of bySuit.values()) {
+    const values = [...m.keys()].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+    let run = 0;
+    let prevIdx = -99;
+    for (const v of values) {
+      if ((m.get(v) || 0) < 2) { run = 0; prevIdx = -99; continue; }
+      const idx = order.indexOf(v);
+      run = (idx >= 0 && idx === prevIdx + 1) ? run + 2 : 2;
+      prevIdx = idx;
+      maxPatternLen = Math.max(maxPatternLen, run);
+    }
+  }
+  return Math.pow(2, maxPatternLen);
 }
 
 export function calculateRoundResult(
@@ -85,13 +85,11 @@ export function calculateRoundResult(
   currentLevel: CardValue,
   isLeaderBidding: boolean,
   holeCards?: Card[],
+  followerBonus: number = 0,
 ): RoundResult {
-  const followerPoints = 200 - leaderPoints;
+  // 2 副牌总分固定 200；抠底分数按规则全额加到闲家，不再从庄家分里扣并被截断
+  const followerPoints = (200 - leaderPoints) + followerBonus;
   const { leaderLevelUp, newDealerTeam } = calculateLevelChange(followerPoints, isLeaderBidding);
-  let deductionMultiplier = 1;
-  if (holeCards && holeCards.length > 0) {
-    deductionMultiplier = calculateDeductionMultiplier(holeCards);
-  }
   let winnerTeam: 'leader' | 'follower';
   if (leaderLevelUp > 0) { winnerTeam = 'leader'; }
   else if (leaderLevelUp < 0) { winnerTeam = 'follower'; }

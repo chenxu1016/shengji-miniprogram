@@ -7,6 +7,7 @@
   <!-- 未连接状态 -->
   <view class="section" wx:if="{{!connected}}">
     <view class="status-text">正在连接服务器...</view>
+    <view class="server-hint">若一直连不上：先运行项目根目录的 start-backend.cmd，再点「切换」重连</view>
   </view>
 
   <!-- 已连接 - 房间大厅 -->
@@ -30,6 +31,13 @@
         </button>
         <input class="nickname-input" type="nickname" placeholder="点击同步微信昵称" value="{{myNickname}}" bindblur="onNicknameInput" bindinput="onNicknameInput" />
       </view>
+
+      <!-- 服务器地址：默认本机 8888；真机调试改成电脑局域网 IP -->
+      <view class="server-row" wx:if="{{!inRoom}}">
+        <input class="server-input" placeholder="ws://localhost:8888" value="{{serverUrlInput}}" bindinput="onServerUrlInput" />
+        <button class="server-apply" bindtap="onApplyServerUrl">切换</button>
+      </view>
+      <view class="server-hint" wx:if="{{!inRoom}}">当前：{{serverUrl}}（真机填局域网IP，留空恢复默认）</view>
 
       <button class="btn btn-create" bindtap="onCreateRoom" wx:if="{{!inRoom}}">
         <text class="btn-icon">+</text>
@@ -68,13 +76,15 @@
         <text class="player-count">{{roomPlayerCount}}/4 人</text>
       </view>
 
+      <!-- 固定四个座位：坐满/未坐满都在同一屏显示 -->
       <view class="player-list">
-        <view class="player-item {{index === myIndex ? 'self' : ''}}" wx:for="{{roomPlayers}}" wx:key="index">
+        <view class="player-item {{item.isSelf ? 'self' : ''}} {{item.empty ? 'empty' : ''}}" wx:for="{{roomSeats}}" wx:key="seatNo">
           <image class="player-avatar-img" wx:if="{{item.avatar}}" src="{{item.avatar}}" mode="aspectFill"></image>
-          <view class="player-avatar" wx:else>{{index + 1}}</view>
+          <view class="player-avatar" wx:elif="{{!item.empty}}">{{item.initial || item.seatNo}}</view>
+          <view class="player-avatar empty-avatar" wx:else>{{item.seatNo}}</view>
           <view class="player-info">
-            <text class="player-name">{{item.nickname || item.name}}</text>
-            <text class="player-ready {{item.ready ? 'ready' : ''}}">{{item.ready ? '已准备' : '等待'}}</text>
+            <text class="player-name">{{item.empty ? '等待玩家加入…' : (item.nickname || item.name)}}{{item.isSelf ? '（我）' : ''}}</text>
+            <text class="player-ready {{item.ready ? 'ready' : ''}}">{{item.empty ? '空位' : (item.ready ? '已准备' : '等待')}}</text>
           </view>
         </view>
       </view>
@@ -91,8 +101,14 @@
         </button>
       </view>
 
-      <view class="waiting-hint" wx:if="{{!allReady && roomPlayerCount < 4}}">
-        <text>等待其他玩家加入...</text>
+      <view class="waiting-hint" wx:if="{{autoStarting}}">
+        <text>四人已准备，正在自动开局发牌…</text>
+      </view>
+      <view class="waiting-hint" wx:elif="{{roomPlayerCount < 4}}">
+        <text>等待其他玩家加入（{{roomPlayerCount}}/4）...</text>
+      </view>
+      <view class="waiting-hint" wx:elif="{{!allReady}}">
+        <text>等待所有人准备...</text>
       </view>
     </view>
   </view>

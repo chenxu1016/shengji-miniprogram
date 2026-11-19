@@ -12,7 +12,8 @@ export enum GameState {
 
 export interface TrickRecord {
   winner: number;    // 玩家索引 0-3
-  cards: Card[][];   // 每家出的牌 [玩家0, 玩家1, 玩家2, 玩家3]
+  winnerTrickIdx?: number; // 赢家在本墩出牌顺序中的下标（用于抠底牌型判定）
+  cards: Card[][];   // 每家出的牌（按出牌顺序）
   points: number;    // 本墩的分值
 }
 

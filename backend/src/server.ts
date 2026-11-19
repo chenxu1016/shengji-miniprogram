@@ -1,5 +1,5 @@
 ﻿import WebSocket from 'ws';
-import { createGame, makeBid, playCards, attemptReverse, skipReverse } from './rules/gameEngine';
+import { createGame, makeBid, playCards, attemptReverse, skipReverse, switchDealerOnTimeout } from './rules/gameEngine';
 import { BidOption } from './rules/bidding';
 import { GameState, RoundResult } from './rules/scoring';
 import { Card } from './models/card';
@@ -23,8 +23,11 @@ interface PlayerSocket {
 interface Room {
   id: string;
   players: PlayerSocket[];
+  observers: any[];   // 站起后仍在房间旁观的客户端（不入座、不参与发牌）
+  inGame: boolean;    // 是否正在进行一局（对局中禁止坐下/站起，避免座位与手牌错位）
   session: any; // GameSession
   gameState: string;
+  lastStartAt?: number; // 上次开局时间，用于防止 4 个客户端兜底请求导致重复发牌
 }
 
 type ClientMessage = {
@@ -66,6 +69,8 @@ function createRoom(hostName: string, nickname: string, avatar: string, ws: WebS
   const room: Room = {
     id: roomId,
     players: [],
+    observers: [],
+    inGame: false,
     session,
     gameState: session.state,
   };
@@ -84,8 +89,8 @@ function createRoom(hostName: string, nickname: string, avatar: string, ws: WebS
   rooms.set(roomId, room);
   playerRooms.set(ws, room.players[0]);
 
-  // 单发：告知该客户端自己的座位号（避免前端靠昵称猜测自己是谁）
-  sendToWs(ws, { type: 'joined', roomId, playerIndex: 0 });
+  // 单发：告知该客户端自己的座位号 + 权威 playerId
+  sendToWs(ws, { type: 'joined', roomId, playerIndex: 0, playerId: playerId || '' });
   broadcastRoom(room, { type: 'roomUpdate', room: getRoomInfo(room), players: getRoomInfo(room).players });
   // 通知所有大厅客户端：出现了一个新房间
   broadcastRoomList();
@@ -116,15 +121,31 @@ function joinRoom(roomId: string, msg: any, ws: WebSocket): Room | null {
   // 优先用 playerId 匹配（最可靠，跨越在线/离线两种状态），
   // 退而求其次用 房间+昵称 匹配。无论旧连接是"已离线"还是"仍是鬼魂(Alive但未心跳)"，
   // 都直接替换其 socket，从而支持"刚退出又立刻回来"的即时重连。
+  // ★ 关键：只有当旧座位「已离线 / 连接已死 / 就是当前这条连接」时才允许接管。
+  // 微信开发者工具多开（或同一台电脑多个调试窗口）时，多个客户端会共享同一份 storage，
+  // 从而带同一个 playerId。若不加这个判断，后加入的人会把先加入的人直接顶掉，
+  // 房间永远只剩 1 人 —— 表现就是「四人同不了桌、四人都准备了也不开局」。
   let rejoinMatch = -1;
   if (playerId) {
-    rejoinMatch = room.players.findIndex(p => p.playerId === playerId && p.roomId === roomId);
+    rejoinMatch = room.players.findIndex(p =>
+      p.playerId === playerId && p.roomId === roomId &&
+      (p.disconnectedAt !== undefined || !p.ws || p.ws === ws || p.ws.readyState !== WebSocket.OPEN)
+    );
   }
   if (rejoinMatch < 0) {
     // 同名重连仅在该玩家"当前离线"时成立，避免把同名在线玩家误判为重连而踢掉
     // （默认昵称都是"玩家"，不及时加 disconnectedAt 判断会互相顶替座位）
     rejoinMatch = room.players.findIndex(p => p.name === playerName && p.roomId === roomId && p.disconnectedAt !== undefined);
   }
+  // 若该 playerId 已被房内另一个「在线」客户端占用，给新客户端分配房间内唯一 ID，
+  // 并通过 joined 消息回写，客户端会覆盖本地 storage，之后重连就不会再撞车。
+  let effectivePlayerId = playerId;
+  if (playerId && rejoinMatch < 0 &&
+      room.players.some(p => p.playerId === playerId && p.roomId === roomId && p.ws !== ws && p.disconnectedAt === undefined)) {
+    effectivePlayerId = playerId + '_' + roomId + '_' + (room.players.length + 1);
+    console.log('[Server] playerId 冲突，为 ' + playerName + ' 分配新 ID: ' + effectivePlayerId);
+  }
+
   if (rejoinMatch >= 0) {
     const old = room.players[rejoinMatch];
     console.log('[Server] ' + playerName + ' 重连恢复房间 ' + roomId + ' 座位 ' + (old.playerIndex + 1) + ' (ready=' + old.ready + ', 之前离线=' + (old.disconnectedAt !== undefined) + ')');
@@ -141,7 +162,7 @@ function joinRoom(roomId: string, msg: any, ws: WebSocket): Room | null {
     old.name = playerName || old.name;
     old.playerId = playerId || old.playerId;
     playerRooms.set(ws, old);
-    sendToWs(ws, { type: 'joined', roomId, playerIndex: old.playerIndex });
+    sendToWs(ws, { type: 'joined', roomId, playerIndex: old.playerIndex, playerId: old.playerId });
     broadcastRoom(room, { type: 'roomUpdate', room: getRoomInfo(room), players: getRoomInfo(room).players });
     // 如果对局已经在进行，把当前 session 也推给重连者，让其恢复手牌/状态
     if (room.session) {
@@ -174,7 +195,7 @@ function joinRoom(roomId: string, msg: any, ws: WebSocket): Room | null {
     name: playerName,
     nickname: msg.nickname || '',
     avatar: msg.avatar || '',
-    playerId: playerId || '',
+    playerId: effectivePlayerId || '',
     roomId,
     playerIndex,
     ready: false,
@@ -182,8 +203,8 @@ function joinRoom(roomId: string, msg: any, ws: WebSocket): Room | null {
   room.players.push(player);
   playerRooms.set(ws, player);
   console.log('[Server] ' + player.name + ' joined room ' + roomId + ' as player ' + (playerIndex + 1));
-  // 单发：告知该客户端自己的座位号
-  sendToWs(ws, { type: 'joined', roomId, playerIndex });
+  // 单发：告知该客户端自己的座位号 + 权威 playerId
+  sendToWs(ws, { type: 'joined', roomId, playerIndex, playerId: effectivePlayerId || '' });
   broadcastRoom(room, { type: 'roomUpdate', room: getRoomInfo(room), players: getRoomInfo(room).players });
   // 通知所有大厅客户端：该房间人数 +1
   broadcastRoomList();
@@ -194,7 +215,11 @@ function joinRoom(roomId: string, msg: any, ws: WebSocket): Room | null {
 // 让出座位，其他玩家可立即加入或开始。
 function leaveRoom(ws: WebSocket): void {
   const player = playerRooms.get(ws);
-  if (!player) return;
+  if (!player) {
+    // 旁观者点「退出房间」：从旁观列表移除即可
+    removeObserver(ws);
+    return;
+  }
 
   const room = rooms.get(player.roomId);
   playerRooms.delete(ws);
@@ -202,11 +227,12 @@ function leaveRoom(ws: WebSocket): void {
 
   const before = room.players.length;
   room.players = room.players.filter(p => p.ws !== ws && p !== player);
+  room.observers = room.observers.filter(o => o.ws !== ws);
   room.players.forEach((p, i) => { p.playerIndex = i; });
 
   console.log('[Server] ' + player.name + ' 主动退出房间 ' + room.id);
 
-  if (room.players.length === 0) {
+  if (room.players.length === 0 && room.observers.length === 0) {
     rooms.delete(room.id);
     console.log('[Server] Room ' + room.id + ' deleted (empty after leave)');
     // 通知大厅：该房间已消失
@@ -226,12 +252,156 @@ function leaveRoom(ws: WebSocket): void {
   void before;
 }
 
+// ============================================
+// 坐下 / 站起 / 旁观（房间座位管理）
+// 站起的玩家保留在房间里成为「旁观者」：不入座、不参与发牌，界面继续可见；
+// 再点「坐下」即可重新占座。对局进行中禁止换座，避免座位号与手牌错位。
+// ============================================
+
+function findObserverRoom(ws: WebSocket): Room | null {
+  for (const room of rooms.values()) {
+    if (room.observers.some(o => o.ws === ws)) return room;
+  }
+  return null;
+}
+
+function removeObserver(ws: WebSocket): void {
+  for (const room of rooms.values()) {
+    const before = room.observers.length;
+    room.observers = room.observers.filter(o => o.ws !== ws);
+    if (room.observers.length === before) continue;
+    if (room.players.length === 0 && room.observers.length === 0) {
+      rooms.delete(room.id);
+      broadcastRoomList();
+      continue;
+    }
+    broadcastRoom(room, { type: 'roomUpdate', room: getRoomInfo(room), players: getRoomInfo(room).players });
+    broadcastRoomList();
+  }
+}
+
+function handleStandUp(ws: WebSocket): void {
+  const player = playerRooms.get(ws);
+  if (!player) {
+    sendToWs(ws, { type: 'error', message: '你当前没有入座' });
+    return;
+  }
+  const room = rooms.get(player.roomId);
+  if (!room) return;
+  if (room.inGame) {
+    sendToWs(ws, { type: 'error', message: '本局进行中，暂不能站起（可点「回大厅」结束本局）' });
+    return;
+  }
+
+  playerRooms.delete(ws);
+  room.players = room.players.filter(p => p !== player);
+  room.players.forEach((p, i) => { p.playerIndex = i; });
+  room.observers = room.observers.filter(o => o.ws !== ws);
+  room.observers.push({
+    ws, name: player.name, nickname: player.nickname, avatar: player.avatar,
+    playerId: player.playerId, roomId: room.id,
+  });
+
+  // 单发给站起者：切换成旁观态
+  sendToWs(ws, { type: 'seatState', seated: false, roomId: room.id, playerIndex: -1, reason: 'standUp' });
+  // 其余玩家座位可能重编号，下发权威座位号
+  room.players.forEach(p => sendToWs(p.ws, {
+    type: 'joined', roomId: room.id, playerIndex: p.playerIndex, playerId: p.playerId,
+  }));
+  broadcastRoom(room, { type: 'roomUpdate', room: getRoomInfo(room), players: getRoomInfo(room).players });
+  broadcastRoom(room, { type: 'playerStoodUp', playerName: player.name });
+  broadcastRoomList();
+  console.log('[Server] ' + player.name + ' 站起，房间 ' + room.id + ' 座位 ' + room.players.length + '/4，旁观 ' + room.observers.length + ' 人');
+}
+
+function handleSitDown(ws: WebSocket, msg: any): void {
+  const already = playerRooms.get(ws);
+  if (already) {
+    sendToWs(ws, { type: 'joined', roomId: already.roomId, playerIndex: already.playerIndex, playerId: already.playerId });
+    return;
+  }
+  const obsRoom = findObserverRoom(ws);
+  const roomId = msg.roomId || (obsRoom ? obsRoom.id : '');
+  const room = rooms.get(roomId);
+  if (!room) {
+    sendToWs(ws, { type: 'error', message: '房间不存在，请返回大厅重新加入' });
+    return;
+  }
+  if (room.inGame) {
+    sendToWs(ws, { type: 'error', message: '本局进行中，请等回大厅后再坐下' });
+    return;
+  }
+  if (room.players.length >= 4) {
+    sendToWs(ws, { type: 'error', message: '四个座位已满，请先旁观等待空位' });
+    return;
+  }
+
+  const obs = obsRoom && obsRoom.id === room.id ? obsRoom.observers.find(o => o.ws === ws) : null;
+  if (obsRoom) {
+    obsRoom.observers = obsRoom.observers.filter(o => o.ws !== ws);
+  }
+  const profile: any = obs || msg;
+  const playerIndex = room.players.length;
+  const player: PlayerSocket = {
+    ws,
+    name: msg.name || profile.name || ('玩家' + (playerIndex + 1)),
+    nickname: msg.nickname || profile.nickname || '',
+    avatar: msg.avatar || profile.avatar || '',
+    playerId: msg.playerId || profile.playerId || '',
+    roomId,
+    playerIndex,
+    ready: false,
+  };
+  room.players.push(player);
+  playerRooms.set(ws, player);
+
+  // joined 是前端切换回「已入座」的权威信号
+  sendToWs(ws, { type: 'joined', roomId, playerIndex, playerId: player.playerId });
+  broadcastRoom(room, { type: 'roomUpdate', room: getRoomInfo(room), players: getRoomInfo(room).players });
+  broadcastRoom(room, { type: 'playerSatDown', playerName: player.name });
+  broadcastRoomList();
+  console.log('[Server] ' + player.name + ' 坐下，房间 ' + roomId + ' 座位 ' + (playerIndex + 1) + '/4');
+}
+
+// 断线重连时，若本地处于旁观态，用 observeRoom 恢复旁观而不是自动占座
+function handleObserveRoom(ws: WebSocket, msg: any): void {
+  if (playerRooms.has(ws)) return;
+  const room = rooms.get(msg.roomId || '');
+  if (!room) return;
+  room.observers = room.observers.filter(o => o.ws !== ws);
+  room.observers.push({
+    ws, name: msg.name || '旁观者', nickname: msg.nickname || '',
+    avatar: msg.avatar || '', playerId: msg.playerId || '', roomId: room.id,
+  });
+  sendToWs(ws, { type: 'seatState', seated: false, roomId: room.id, playerIndex: -1, reason: 'reconnect' });
+  broadcastRoom(room, { type: 'roomUpdate', room: getRoomInfo(room), players: getRoomInfo(room).players });
+}
+
+// 「回大厅」：结束当前对局、清空准备状态，让所有人可以重新坐下/站起/准备下一局
+function handleBackToLobby(ws: WebSocket): void {
+  const p = playerRooms.get(ws) || null;
+  const room = p ? rooms.get(p.roomId) : findObserverRoom(ws);
+  if (!room) return;
+  room.inGame = false;
+  room.lastStartAt = undefined;
+  room.session = createGame({ numDecks: 2 });
+  room.gameState = room.session.state;
+  room.players.forEach(x => { x.ready = false; });
+  broadcastRoom(room, { type: 'roomLobby', room: getRoomInfo(room), players: getRoomInfo(room).players });
+  broadcastRoomList();
+  console.log('[Server] 房间 ' + room.id + ' 回到等待大厅');
+}
+
 // 断线（socket 意外关闭）：保留座位一段时间(grace)，以便重连恢复；
 // 期间其他玩家看到该玩家"离线"。心跳会先把真正的死连接 terminate 成 close，
 // 再由本函数处理，所以不会出现"鬼魂占位"。
 function markDisconnected(ws: WebSocket): void {
   const player = playerRooms.get(ws);
-  if (!player) return;
+  if (!player) {
+    // 旁观者断线：只从旁观列表移除，不影响座位
+    removeObserver(ws);
+    return;
+  }
 
   const room = rooms.get(player.roomId);
   if (!room) {
@@ -267,7 +437,7 @@ function cleanupDisconnectedPlayers() {
     // 如果有玩家被清掉，重新编号
     if (room.players.length !== before) {
       room.players.forEach((p, i) => { p.playerIndex = i; });
-      if (room.players.length === 0) {
+      if (room.players.length === 0 && room.observers.length === 0) {
         rooms.delete(roomId);
         console.log('[Server] Room ' + roomId + ' deleted (empty after cleanup)');
       } else {
@@ -286,6 +456,16 @@ function cleanupDisconnectedPlayers() {
 }
 
 function startGame(room: Room): void {
+  // 服务端 4 人全准备会自动开局，客户端还有一层兜底 startGame。
+  // 两者可能在几百毫秒内同时到达，必须去重，否则会连续洗两次牌、
+  // 客户端收到两个 gameStart，发牌动画被重置，看起来就是「进不去打牌」。
+  const now = Date.now();
+  if (room.lastStartAt && now - room.lastStartAt < 3000) {
+    console.log('[Server] 忽略 3s 内重复开局请求，房间 ' + room.id);
+    return;
+  }
+  room.lastStartAt = now;
+  room.inGame = true;
   room.session = createGame({ numDecks: 2 });
   room.gameState = room.session.state;
   
@@ -307,10 +487,17 @@ function startGame(room: Room): void {
 
 function handleReady(ws: WebSocket): void {
   const player = playerRooms.get(ws);
-  if (!player) return;
+  if (!player) {
+    sendToWs(ws, { type: 'error', message: '请先坐下再准备' });
+    return;
+  }
 
   const room = rooms.get(player.roomId);
   if (!room) return;
+  if (room.inGame) {
+    sendToWs(ws, { type: 'error', message: '本局已开始，无需再准备' });
+    return;
+  }
 
   // 切换准备状态（仅在线玩家能切换自己的）
   room.players[player.playerIndex].ready = !room.players[player.playerIndex].ready;
@@ -333,6 +520,9 @@ function handleReady(ws: WebSocket): void {
   if (canStart) {
     console.log('[Server] All players ready in room ' + room.id + ', starting game...');
     startGame(room);
+  } else {
+    console.log('[Server] 房间 ' + room.id + ' 暂不开局：在线 ' + onlinePlayers.length + '/4，在线全员已准备=' + allOnlineReady +
+      '（离线玩家会保留座位 5 分钟，需等其重连）');
   }
 }
 
@@ -341,6 +531,12 @@ function handleStartGame(ws: WebSocket): void {
   if (!player) return;
   const room = rooms.get(player.roomId);
   if (!room) return;
+  // 服务端刚刚自动开局，客户端的兜底 startGame 晚到了：静默忽略。
+  // 否则 startGame 已把 ready 重置，这里会误报「需 4 名在线玩家全部准备」的 toast。
+  if (room.lastStartAt && Date.now() - room.lastStartAt < 5000) {
+    console.log('[Server] 忽略兜底 startGame（对局已开始），房间 ' + room.id);
+    return;
+  }
   const onlinePlayers = room.players.filter(p => p.disconnectedAt === undefined);
   const allOnlineReady = onlinePlayers.length > 0 && onlinePlayers.every(p => p.ready);
   if (!allOnlineReady || onlinePlayers.length !== 4) {
@@ -435,6 +631,29 @@ function handleSkipReverse(ws: WebSocket): void {
   });
 }
 
+// 后续局：庄家队 10 秒叫不起牌，换成另一队上庄（客户端倒计时到期触发）
+function handleSwitchDealer(ws: WebSocket): void {
+  const player = playerRooms.get(ws);
+  if (!player) return;
+  const room = rooms.get(player.roomId);
+  if (!room) return;
+  // 必须是庄家队的人触发（庄家或对家），闲家队无权换庄
+  const dealer = room.session?.finalBidderIndex;
+  if (dealer < 0 || (player.playerIndex !== dealer && player.playerIndex !== (dealer + 2) % 4)) {
+    sendToWs(ws, { type: 'error', message: '只有庄家队可申请换庄' });
+    return;
+  }
+  const result = switchDealerOnTimeout(room.session);
+  if (!result.success) {
+    sendToWs(ws, { type: 'error', message: result.error });
+    return;
+  }
+  broadcastRoom(room, {
+    type: 'dealerSwitched',
+    session: serializeSession(room.session),
+  });
+}
+
 function handleRoundEnd(ws: WebSocket): void {
   const player = playerRooms.get(ws);
   if (!player) return;
@@ -442,6 +661,7 @@ function handleRoundEnd(ws: WebSocket): void {
   const room = rooms.get(player.roomId);
   if (!room) return;
 
+  room.inGame = false;   // 结算完成，允许下一局重新坐下/站起
   broadcastRoom(room, {
     type: 'roundEnd',
     session: serializeSession(room.session),
@@ -513,7 +733,23 @@ function handleMessage(ws: WebSocket, data: string): void {
       case 'leaveRoom':
         leaveRoom(ws);
         break;
-        
+
+      case 'sitDown':
+        handleSitDown(ws, msg);
+        break;
+
+      case 'standUp':
+        handleStandUp(ws);
+        break;
+
+      case 'observeRoom':
+        handleObserveRoom(ws, msg);
+        break;
+
+      case 'backToLobby':
+        handleBackToLobby(ws);
+        break;
+
       case 'ready':
         handleReady(ws);
         break;
@@ -543,6 +779,9 @@ function handleMessage(ws: WebSocket, data: string): void {
         break;
       case 'reverse':
         handleReverse(ws, msg.option);
+        break;
+      case 'switchDealer':
+        handleSwitchDealer(ws);
         break;
 
       case 'roundEnd':
@@ -612,9 +851,10 @@ function sendToWs(ws: WebSocket | null, data: any): void {
 
 function broadcastRoom(room: Room, data: any): void {
   const serialized = JSON.stringify(data);
-  for (const player of room.players) {
-    if (player.ws && player.ws.readyState === WebSocket.OPEN) {
-      player.ws.send(serialized);
+  // 座位上的玩家 + 已站起的旁观者都能收到房间状态
+  for (const p of room.players.concat(room.observers as PlayerSocket[])) {
+    if (p.ws && p.ws.readyState === WebSocket.OPEN) {
+      p.ws.send(serialized);
     }
   }
 }
@@ -663,11 +903,13 @@ function serializeSession(session: any): any {
     trumpSuit: session.trumpSuit,
     level: session.level,
     dealerIndex: session.dealerIndex,
+    firstBidderIndex: session.firstBidderIndex,
     currentBidderIndex: session.currentBidderIndex,
     currentTrickWinner: session.currentTrickWinner,
     bidScore: session.bidScore,
     finalBidderIndex: session.finalBidderIndex,
     finalSuit: session.finalSuit,
+    dealerLocked: !!session.dealerLocked,
     currentTrick: session.currentTrick,
     tricks: session.tricks,
     teamLevels: [session.teamLevels.get(0) ?? 0, session.teamLevels.get(1) ?? 0],
@@ -685,8 +927,10 @@ function getRoomInfo(room: Room): any {
   return {
     id: room.id,
     playerCount: room.players.length,
+    observerCount: room.observers.length,
+    inGame: room.inGame,
     maxPlayers: 4,
-    gameState: room.session?.state || 'waiting',
+    gameState: room.inGame ? (room.session?.state || 'playing') : 'waiting',
     players: room.players.map(p => ({
       name: p.name,
       nickname: p.nickname,

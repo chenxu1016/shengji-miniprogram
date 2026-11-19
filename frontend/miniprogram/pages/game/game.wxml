@@ -1,6 +1,9 @@
 ﻿<view class="game-page">
+  <!-- 顶部系统条 -->
   <view class="status-bar">
-    <view class="back-btn" bindtap="onBack">←</view>
+    <view class="back-btn" bindtap="onBack">‹</view>
+    <view class="room-chip">房间 {{roomId}}</view>
+    <view class="status-spacer"></view>
     <view class="help-btn">?</view>
     <view class="piggy-icon">🐷</view>
   </view>
@@ -11,202 +14,269 @@
     <text>{{reconnectText}}</text>
   </view>
 
+  <!-- ==================== 大厅（未开局） ==================== -->
   <view class="lobby-stage" wx:if="{{!gameStarted && !showReconnecting}}">
     <view class="table-title">升级 · 四人桌</view>
 
     <view class="table-center">
-      <!-- 北 - 玩家3 (index 2) -->
-      <view class="player-seat seat-top" wx:if="{{roomPlayers[2]}}">
-        <view class="seat-avatar">
-          <text class="avatar-letter" style="text-transform: uppercase;">{{roomPlayers[2].initial || '?'}}</text>
+      <view class="player-seat seat-top {{seatTop.empty ? 'empty-seat' : ''}}">
+        <view class="seat-avatar {{seatTop.ready ? 'ready' : ''}}">
+          <text class="avatar-letter">{{seatTop.empty ? '+' : seatTop.initial}}</text>
         </view>
-        <view class="seat-name">{{roomPlayers[2].nickname || roomPlayers[2].name}}</view>
-        <view class="seat-status {{roomPlayers[2].ready ? 'ready' : 'waiting'}}">{{roomPlayers[2].ready ? '✓已准备' : '等待中'}}</view>
-        <view class="seat-cards">{{p2Count}}张</view>
+        <view class="seat-name">{{seatTop.empty ? '等待加入' : seatTop.name}}</view>
+        <view class="seat-status {{seatTop.ready ? 'ready' : 'waiting'}}">{{seatTop.empty ? '空位' : (seatTop.ready ? '✓已准备' : (seatTop.online ? '等待中' : '离线'))}}</view>
+        <view class="seat-cards" wx:if="{{!seatTop.empty}}">{{seatTop.count}}张</view>
       </view>
 
-      <!-- 西 - 玩家4 (index 3) -->
-      <view class="player-seat seat-left" wx:if="{{roomPlayers[3]}}">
-        <view class="seat-avatar">
-          <text class="avatar-letter" style="text-transform: uppercase;">{{roomPlayers[3].initial || '?'}}</text>
+      <view class="player-seat seat-left {{seatLeft.empty ? 'empty-seat' : ''}}">
+        <view class="seat-avatar {{seatLeft.ready ? 'ready' : ''}}">
+          <text class="avatar-letter">{{seatLeft.empty ? '+' : seatLeft.initial}}</text>
         </view>
-        <view class="seat-name">{{roomPlayers[3].nickname || roomPlayers[3].name}}</view>
-        <view class="seat-status {{roomPlayers[3].ready ? 'ready' : 'waiting'}}">{{roomPlayers[3].ready ? '✓已准备' : '等待中'}}</view>
-        <view class="seat-cards">{{p3Count}}张</view>
+        <view class="seat-name">{{seatLeft.empty ? '等待加入' : seatLeft.name}}</view>
+        <view class="seat-status {{seatLeft.ready ? 'ready' : 'waiting'}}">{{seatLeft.empty ? '空位' : (seatLeft.ready ? '✓已准备' : (seatLeft.online ? '等待中' : '离线'))}}</view>
+        <view class="seat-cards" wx:if="{{!seatLeft.empty}}">{{seatLeft.count}}张</view>
       </view>
 
-      <!-- 东 - 玩家1 (index 1) -->
-      <view class="player-seat seat-right" wx:if="{{roomPlayers[1]}}">
-        <view class="seat-avatar">
-          <text class="avatar-letter" style="text-transform: uppercase;">{{roomPlayers[1].initial || '?'}}</text>
+      <view class="player-seat seat-right {{seatRight.empty ? 'empty-seat' : ''}}">
+        <view class="seat-avatar {{seatRight.ready ? 'ready' : ''}}">
+          <text class="avatar-letter">{{seatRight.empty ? '+' : seatRight.initial}}</text>
         </view>
-        <view class="seat-name">{{roomPlayers[1].nickname || roomPlayers[1].name}}</view>
-        <view class="seat-status {{roomPlayers[1].ready ? 'ready' : 'waiting'}}">{{roomPlayers[1].ready ? '✓已准备' : '等待中'}}</view>
-        <view class="seat-cards">{{p1Count}}张</view>
+        <view class="seat-name">{{seatRight.empty ? '等待加入' : seatRight.name}}</view>
+        <view class="seat-status {{seatRight.ready ? 'ready' : 'waiting'}}">{{seatRight.empty ? '空位' : (seatRight.ready ? '✓已准备' : (seatRight.online ? '等待中' : '离线'))}}</view>
+        <view class="seat-cards" wx:if="{{!seatRight.empty}}">{{seatRight.count}}张</view>
       </view>
 
-      <!-- 南 - 自己 (myIndex) -->
-      <view class="player-seat seat-bottom self-seat">
-        <view class="seat-avatar self-avatar">
-          <text class="avatar-letter" style="text-transform: uppercase;">{{roomPlayers[myIndex] ? (roomPlayers[myIndex].initial || '?') : '我'}}</text>
+      <view class="player-seat seat-bottom {{seated ? 'self-seat' : ''}}">
+        <view class="seat-avatar {{seated ? 'self-avatar' : ''}} {{seatBottom.ready ? 'ready' : ''}}">
+          <text class="avatar-letter">{{seatBottom.empty ? '我' : seatBottom.initial}}</text>
         </view>
-        <view class="seat-name self-name">{{roomPlayers[myIndex] ? (roomPlayers[myIndex].nickname || roomPlayers[myIndex].name) : '我'}}</view>
-        <view class="seat-status ready">✓已准备</view>
+        <view class="seat-name {{seated ? 'self-name' : ''}}">{{seatBottom.empty ? '空位' : seatBottom.name}}{{seated ? '（我）' : ''}}</view>
+        <view class="seat-status {{seatBottom.ready ? 'ready' : 'waiting'}}">{{seatBottom.empty ? '空位' : (seatBottom.ready ? '✓已准备' : (seatBottom.online ? '等待中' : '离线'))}}</view>
       </view>
     </view>
 
-    <view class="center-buttons">
-      <button class="action-btn ready-btn {{selfReady ? 'active' : ''}}" bindtap="onSelfReady">
-        {{selfReady ? '✓已准备' : '准备'}}
-      </button>
-      <button class="action-btn start-btn {{allReady && roomPlayerCount === 4 ? 'active' : ''}}" bindtap="onDealCards" wx:if="{{allReady && roomPlayerCount === 4}}">
-        开始发牌
-      </button>
+    <!-- 常驻座位按钮栏：坐下 / 站起 / 准备 / 开始发牌 / 退出房间 -->
+    <view class="seat-toolbar">
+      <view class="seat-tool-btn {{seated ? 'is-off' : 'is-primary'}}" bindtap="onSitDown">坐下</view>
+      <view class="seat-tool-btn {{seated && !roomInGame ? '' : 'is-off'}}" bindtap="onStandUp">站起</view>
+      <view class="seat-tool-btn {{seated && !roomInGame ? (selfReady ? 'is-active' : 'is-go') : 'is-off'}}" bindtap="onSelfReady">{{selfReady ? '取消准备' : '准备'}}</view>
+      <view class="seat-tool-btn is-gold" wx:if="{{allReady && roomPlayerCount === 4}}" bindtap="onDealCards">开始发牌</view>
+      <view class="seat-tool-btn is-ghost" bindtap="onLeaveRoom">退出房间</view>
     </view>
+    <view class="lobby-hint">{{seated ? '' : '旁观中 · 点「坐下」重新入座 · '}}{{roomPlayerCount}}/4 人 · {{autoStarting ? '四人已准备，正在自动开局发牌…' : (roomPlayerCount < 4 ? '等待其他玩家加入' : '等待所有人准备')}}{{observerCount ? ' · ' + observerCount + ' 人旁观' : ''}}</view>
   </view>
 
+  <!-- ==================== 对局（参考多乐升级牌桌） ==================== -->
   <view class="game-stage" wx:if="{{gameStarted}}">
-    <!-- 顶部信息条：左上记分面板 + 右侧亮主区（横向 6 chip 小条） -->
-    <view class="top-bar">
-      <view class="score-panel">
-        <view class="score-col">
-          <text class="score-col-label">我方</text>
-          <text class="score-col-value mine">{{scorePanel.myLevel}}级</text>
+    <view class="felt"></view>
+
+    <!-- 第一行：记分板 + 级牌大卡 + 主牌徽标 -->
+    <view class="hud-zone">
+      <view class="score-board">
+        <view class="score-row">
+          <text class="score-team">我方</text>
+          <text class="score-label">打</text>
+          <text class="score-level mine">{{scorePanel.myLevel}}</text>
+          <text class="score-sep"></text>
+          <text class="score-label">得分</text>
+          <text class="score-point">{{scorePanel.myScore}}</text>
         </view>
-        <view class="score-col">
-          <text class="score-col-label">对方</text>
-          <text class="score-col-value opp">{{scorePanel.oppLevel}}级</text>
-        </view>
-        <view class="score-col">
-          <text class="score-col-label">本局</text>
-          <text class="score-col-value trump">{{scorePanel.trumpText}}</text>
+        <view class="score-row">
+          <text class="score-team">对方</text>
+          <text class="score-label">打</text>
+          <text class="score-level opp">{{scorePanel.oppLevel}}</text>
+          <text class="score-sep"></text>
+          <text class="score-label">得分</text>
+          <text class="score-point">{{scorePanel.oppScore}}</text>
         </view>
       </view>
 
-      <!-- 顶部右侧：6 chip 横排 + caption。chip 可点击亮主叫分 -->
-      <view class="trump-display" wx:if="{{trumpDisplayVisible}}">
-        <view class="trump-chips">
-          <view class="trump-chip {{item.lit ? 'lit' : ''}} {{item.available ? 'available' : ''}} {{item.dim ? 'dim' : ''}} {{item.suitClass}} {{item.clickable ? 'clickable' : ''}}"
-                wx:for="{{trumpChips}}" wx:key="key"
-                data-suit="{{item.key}}" data-bid="0"
-                bindtap="onTrumpChipTap">
-            <text class="chip-label">{{item.label}}</text>
-          </view>
-        </view>
-        <text class="trump-caption">{{trumpCaption}}</text>
+      <view class="level-card">
+        <text class="level-num">{{levelText}}</text>
+        <text class="level-cap">本局打{{levelText}}</text>
+      </view>
+
+      <view class="trump-badge">
+        <text class="trump-badge-label">主牌</text>
+        <text class="trump-badge-char {{trumpBadge.cls}}">{{trumpBadge.char}}</text>
+        <text class="trump-badge-value">{{trumpBadge.name}}</text>
       </view>
     </view>
 
-    <!-- 三家对手：放到 game-stage 根容器内（不再被 table-area 高度裁剪），用百分比定位适配横竖屏 -->
-    <view class="opp opp-top">
-      <view class="opp-avatar">{{oppTop.initial}}</view>
-      <text class="opp-count">{{oppTop.count}}张</text>
-      <view class="opp-hand">
-        <view class="opp-back" wx:for="{{oppTop.backs}}" wx:key="*this"></view>
-      </view>
-      <view class="opp-bid-chips" wx:if="{{oppTop.bidSuit}}">
-        <view class="opp-bid-label">已亮</view>
-        <view class="opp-bid-chip lit {{oppTop.bidSuitClass}}">
-          <text class="opp-bid-chip-label">{{oppTop.bidLabel}}</text>
-        </view>
-      </view>
-    </view>
-    <view class="opp opp-left">
-      <view class="opp-avatar">{{oppLeft.initial}}</view>
-      <text class="opp-count">{{oppLeft.count}}张</text>
-      <view class="opp-hand">
-        <view class="opp-back" wx:for="{{oppLeft.backs}}" wx:key="*this"></view>
-      </view>
-      <view class="opp-bid-chips" wx:if="{{oppLeft.bidSuit}}">
-        <view class="opp-bid-label">已亮</view>
-        <view class="opp-bid-chip lit {{oppLeft.bidSuitClass}}">
-          <text class="opp-bid-chip-label">{{oppLeft.bidLabel}}</text>
-        </view>
-      </view>
-    </view>
-    <view class="opp opp-right">
-      <view class="opp-avatar">{{oppRight.initial}}</view>
-      <text class="opp-count">{{oppRight.count}}张</text>
-      <view class="opp-hand">
-        <view class="opp-back" wx:for="{{oppRight.backs}}" wx:key="*this"></view>
-      </view>
-      <view class="opp-bid-chips" wx:if="{{oppRight.bidSuit}}">
-        <view class="opp-bid-label">已亮</view>
-        <view class="opp-bid-chip lit {{oppRight.bidSuitClass}}">
-          <text class="opp-bid-chip-label">{{oppRight.bidLabel}}</text>
-        </view>
-      </view>
-    </view>
-
-    <!-- 牌桌区：中央出牌区 + 倒计时/发牌遮罩 -->
-    <view class="table-area">
-      <!-- 中央出牌区（按绝对座位 0-3 显示） -->
-      <view class="trick-area">
-        <view class="trick-slot" wx:for="{{trickCards}}" wx:key="index" wx:if="{{item}}">
-          <text class="trick-card {{item.red?'red':''}}">{{item.display}}</text>
-        </view>
-        <text class="waiting-hint" wx:if="{{!hasPlayedCards && !dealing}}">{{waitingText}}</text>
-      </view>
-
-      <!-- 发牌中遮罩：覆盖牌桌区中央，挡住对手头像 -->
-      <view class="dealing-overlay" wx:if="{{dealing}}">
-        <view class="dealing-spinner"></view>
-        <text class="dealing-text">{{dealingText}}</text>
-        <text class="dealing-count">已发 {{dealingDone}}/25</text>
-      </view>
-
-      <!-- 反牌倒计时：顶部条状，贴 top-bar 下方，不挡中央牌桌区 -->
-      <view class="reverse-overlay" wx:if="{{reverseCountdownActive}}">
-        <view class="reverse-card">
-          <view class="reverse-title">反牌倒计时</view>
-          <view class="reverse-clock">
-            <view class="reverse-ring">
-              <view class="reverse-ring-num">{{reverseCountdown}}</view>
+    <!-- 第二行：牌桌 -->
+    <view class="table-zone">
+      <!-- 对家 / 上家 / 下家：四角头像卡片 -->
+      <view class="pseat pseat-top {{activeSeat === seatTop.absIndex ? 'active' : ''}} {{bankerSeat === seatTop.absIndex ? 'banker' : ''}}">
+        <view class="pseat-face {{seatTop.online ? '' : 'offline'}}">{{oppTop.initial || '?'}}</view>
+        <view class="pseat-body">
+          <text class="pseat-nick">{{oppTop.name || '等待加入'}}{{oppTop.online ? '' : '（离线）'}}</text>
+          <view class="pseat-sub">
+            <text class="pseat-count">{{oppTop.count}}张</text>
+            <view class="mini-backs" wx:if="{{oppTop.backs.length}}">
+              <view class="mini-back" wx:for="{{oppTop.backs}}" wx:key="*this"></view>
             </view>
           </view>
-          <view class="reverse-hint">请看牌，剩余 {{reverseCountdown}} 秒可反主</view>
-          <view class="reverse-tips">点 6 chip 亮主</view>
-          <button class="reverse-skip-btn" bindtap="onSkipReverseCountdown">开始叫分 →</button>
         </view>
+        <view class="pseat-bid {{oppTop.bidSuitClass}}" wx:if="{{oppTop.bidSuit}}">{{oppTop.bidLabel}}</view>
+        <view class="pseat-banker" wx:if="{{bankerSeat === seatTop.absIndex}}">庄</view>
+      </view>
+
+      <view class="pseat pseat-left {{activeSeat === seatLeft.absIndex ? 'active' : ''}} {{bankerSeat === seatLeft.absIndex ? 'banker' : ''}}">
+        <view class="pseat-face {{seatLeft.online ? '' : 'offline'}}">{{oppLeft.initial || '?'}}</view>
+        <view class="pseat-body">
+          <text class="pseat-nick">{{oppLeft.name || '等待加入'}}{{oppLeft.online ? '' : '（离线）'}}</text>
+          <view class="pseat-sub">
+            <text class="pseat-count">{{oppLeft.count}}张</text>
+            <view class="mini-backs" wx:if="{{oppLeft.backs.length}}">
+              <view class="mini-back" wx:for="{{oppLeft.backs}}" wx:key="*this"></view>
+            </view>
+          </view>
+        </view>
+        <view class="pseat-bid {{oppLeft.bidSuitClass}}" wx:if="{{oppLeft.bidSuit}}">{{oppLeft.bidLabel}}</view>
+        <view class="pseat-banker" wx:if="{{bankerSeat === seatLeft.absIndex}}">庄</view>
+      </view>
+
+      <view class="pseat pseat-right {{activeSeat === seatRight.absIndex ? 'active' : ''}} {{bankerSeat === seatRight.absIndex ? 'banker' : ''}}">
+        <view class="pseat-face {{seatRight.online ? '' : 'offline'}}">{{oppRight.initial || '?'}}</view>
+        <view class="pseat-body">
+          <text class="pseat-nick">{{oppRight.name || '等待加入'}}{{oppRight.online ? '' : '（离线）'}}</text>
+          <view class="pseat-sub">
+            <text class="pseat-count">{{oppRight.count}}张</text>
+            <view class="mini-backs" wx:if="{{oppRight.backs.length}}">
+              <view class="mini-back" wx:for="{{oppRight.backs}}" wx:key="*this"></view>
+            </view>
+          </view>
+        </view>
+        <view class="pseat-bid {{oppRight.bidSuitClass}}" wx:if="{{oppRight.bidSuit}}">{{oppRight.bidLabel}}</view>
+        <view class="pseat-banker" wx:if="{{bankerSeat === seatRight.absIndex}}">庄</view>
+      </view>
+
+      <!-- 亮主 / 叫分 / 反牌 操作条：所有操作都在这条横栏里完成，无底部按钮栏 -->
+      <view class="bid-zone" wx:if="{{trumpDisplayVisible}}">
+        <view class="bid-banner">
+          <text class="bid-tag">{{bidActionOpen ? '操作' : '亮主'}}</text>
+          <text class="bid-caption">{{bidActionOpen ? bidActionCaption : trumpCaption}}</text>
+        </view>
+
+        <!-- 常态：不叫/不反主格 + 大王小王 + 四种花色，右下角是持有张数 -->
+        <view class="bid-strip" wx:if="{{!bidActionOpen}}">
+          <view class="bid-cell pass-cell {{bidPassEnabled ? 'clickable' : 'dim'}}"
+                wx:if="{{bidPassLabel}}" bindtap="onBidPassTap">
+            <text class="cell-label">{{bidPassLabel}}</text>
+          </view>
+          <view class="bid-cell {{item.lit ? 'lit' : ''}} {{item.available ? 'available' : ''}} {{item.dim ? 'dim' : ''}} {{item.suitClass}} {{item.clickable ? 'clickable' : ''}}"
+                wx:for="{{trumpChips}}" wx:key="key"
+                data-suit="{{item.key}}" bindtap="onTrumpChipTap">
+            <text class="cell-label">{{item.label}}</text>
+            <text class="cell-count">{{item.count}}</text>
+          </view>
+        </view>
+
+        <!-- 点花色后：同一条横栏就地变成「亮主 / 1分 / 2分 / 3分」或「反主 / 不反主」 -->
+        <view class="bid-strip action-strip" wx:else>
+          <view class="bid-cell action-head {{bidActionSuitClass}}">
+            <text class="cell-label">{{bidActionSuitLabel}}</text>
+          </view>
+          <view class="bid-cell action-cell {{item.primary ? 'primary' : ''}} {{item.key === 'cancel' ? 'cancel' : ''}} clickable"
+                wx:for="{{bidActionItems}}" wx:key="key"
+                data-key="{{item.key}}" bindtap="onBidActionTap">
+            <text class="cell-label">{{item.label}}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 中央出牌区：四方位摆牌 -->
+      <view class="trick-zone">
+        <view class="table-mark" wx:if="{{!hasPlayedCards}}">
+          <text class="mark-mode">经典双升</text>
+          <text class="mark-level">打 {{levelText}}</text>
+          <text class="mark-trump">{{trumpText}}</text>
+        </view>
+
+        <view class="trick-pos pos-top" wx:if="{{trickSlots.top}}">
+          <view class="played-card {{trickSlots.top.red ? 'red' : ''}}">
+            <text class="played-rank">{{trickSlots.top.rank}}</text>
+            <text class="played-suit">{{trickSlots.top.suit}}</text>
+          </view>
+          <text class="played-owner">{{trickSlots.top.owner}}</text>
+        </view>
+        <view class="trick-pos pos-left" wx:if="{{trickSlots.left}}">
+          <view class="played-card {{trickSlots.left.red ? 'red' : ''}}">
+            <text class="played-rank">{{trickSlots.left.rank}}</text>
+            <text class="played-suit">{{trickSlots.left.suit}}</text>
+          </view>
+          <text class="played-owner">{{trickSlots.left.owner}}</text>
+        </view>
+        <view class="trick-pos pos-right" wx:if="{{trickSlots.right}}">
+          <view class="played-card {{trickSlots.right.red ? 'red' : ''}}">
+            <text class="played-rank">{{trickSlots.right.rank}}</text>
+            <text class="played-suit">{{trickSlots.right.suit}}</text>
+          </view>
+          <text class="played-owner">{{trickSlots.right.owner}}</text>
+        </view>
+        <view class="trick-pos pos-bottom" wx:if="{{trickSlots.bottom}}">
+          <view class="played-card {{trickSlots.bottom.red ? 'red' : ''}}">
+            <text class="played-rank">{{trickSlots.bottom.rank}}</text>
+            <text class="played-suit">{{trickSlots.bottom.suit}}</text>
+          </view>
+          <text class="played-owner">{{trickSlots.bottom.owner}}</text>
+        </view>
+      </view>
+
+      <!-- 状态提示常驻：发完牌后自家手牌不收起、不遮挡，一直展开 -->
+      <view class="state-hint {{dealing ? 'dealing' : ''}}">{{dealing ? dealingText : waitingText}}</view>
+      <view class="deal-progress" wx:if="{{dealing}}"><view class="deal-progress-fill" style="width: {{dealingDone * 4}}%;"></view></view>
+
+      <!-- 反牌倒计时改成角落小条：不用中央大卡片，发完牌后自家手牌始终完整展开可见 -->
+      <view class="reverse-chip" wx:if="{{reverseCountdownActive}}">
+        <text class="reverse-chip-num">{{reverseCountdown}}s</text>
+        <text class="reverse-chip-txt">手牌已展开 · 可抢叫/反主</text>
+        <view class="reverse-chip-btn" bindtap="onSkipReverseCountdown">跳过等待</view>
       </view>
     </view>
 
-    <!-- 操作区 -->
-    <view class="action-bar">
-      <!-- 叫分 -->
-      <block wx:if="{{showBidActions}}">
-        <button class="op-btn" bindtap="onBidPass">不叫</button>
-        <button class="op-btn" bindtap="onBidZero">亮主</button>
-        <button class="op-btn" bindtap="onBidOne">1分</button>
-        <button class="op-btn" bindtap="onBidTwo">2分</button>
-        <button class="op-btn" bindtap="onBidThree">3分</button>
-      </block>
-      <!-- 反主 -->
-      <block wx:if="{{showReverseActions}}">
-        <button class="op-btn primary" bindtap="onSkipReverse">不反主</button>
-      </block>
-      <!-- 出牌 -->
-      <block wx:if="{{showPlayActions}}">
+    <!-- 第三行：自己信息 + 出牌/重选（叫分与反牌已全部移入上方亮主条） -->
+    <view class="dock">
+      <view class="my-badge {{bankerSeat === myIndex ? 'banker' : ''}}">
+        <view class="my-face">{{mySeat.initial || '我'}}</view>
+        <view class="my-meta">
+          <text class="my-name">{{mySeat.name}}（我）</text>
+          <text class="my-count">{{myHandCount}} 张</text>
+        </view>
+        <view class="pseat-banker" wx:if="{{bankerSeat === myIndex}}">庄</view>
+      </view>
+      <!-- 牌桌里同样常驻的座位按钮栏（紧凑版） -->
+      <view class="seat-toolbar compact">
+        <view class="seat-tool-btn {{seated ? 'is-off' : 'is-primary'}}" bindtap="onSitDown">坐下</view>
+        <view class="seat-tool-btn {{seated && !gameStarted ? '' : 'is-off'}}" bindtap="onStandUp">站起</view>
+        <view class="seat-tool-btn {{seated && !gameStarted ? (selfReady ? 'is-active' : 'is-go') : 'is-off'}}" bindtap="onSelfReady">{{selfReady ? '取消准备' : '准备'}}</view>
+        <view class="seat-tool-btn is-ghost" bindtap="onBackToLobby">回大厅</view>
+        <view class="seat-tool-btn is-ghost" bindtap="onLeaveRoom">退出</view>
+      </view>
+      <view class="action-bar" wx:if="{{showPlayActions}}">
         <button class="op-btn primary" bindtap="onPlayConfirm">出牌</button>
         <button class="op-btn" bindtap="onClearSelection">重选</button>
-      </block>
-      <text class="turn-hint" wx:if="{{!showBidActions && !showReverseActions && !showPlayActions && !reverseCountdownActive}}">{{waitingText}}</text>
+      </view>
+      <text class="dock-tip" wx:elif="{{bidActionOpen}}">在上方横栏里选分数 / 反主</text>
+      <text class="dock-tip" wx:elif="{{trumpDisplayVisible && bidPassLabel}}">点上方横栏的花色亮主、叫分或反主</text>
     </view>
 
-    <!-- 手牌区（用普通 view 替代 scroll-view，避免被 flex 父容器压成 0 高度） -->
+    <!-- 第四行：手牌（分组留白 + 横向滚动 + 大牌角标） -->
     <view class="hand-area">
-      <view class="hand-cards">
-        <view class="hand-card {{item.selected?'selected':''}} {{item.isJoker?'joker':''}} {{item.dealing?'dealing-in':''}} suit-{{item.suit}}"
-              wx:for="{{myHand}}" wx:key="key"
-              data-index="{{index}}" bindtap="onCardTap">
-          <view class="hand-card-top">{{item.topLabel}}</view>
-          <view class="hand-card-center">
-            <text class="hand-card-rank">{{item.rankChar}}</text>
-            <text class="hand-card-suit-small">{{item.suitChar}}</text>
+      <scroll-view class="hand-scroll" scroll-x="true" enable-flex="true" show-scrollbar="{{false}}">
+        <view class="hand-cards" style="width: {{handTrackWidth}}rpx;">
+          <view class="hand-card {{item.isRed ? 'red' : ''}} {{item.isJoker ? 'joker' : ''}} {{item.selected ? 'selected' : ''}} {{item.dealing ? 'dealing-in' : ''}} {{item.groupStart ? 'group-start' : ''}}"
+                wx:for="{{myHand}}" wx:key="key"
+                data-index="{{index}}" bindtap="onCardTap">
+            <view class="card-corner">
+              <text class="corner-rank">{{item.cornerRank}}</text>
+              <text class="corner-suit">{{item.cornerSuit}}</text>
+            </view>
+            <text class="card-big">{{item.bigSuit}}</text>
           </view>
-          <view class="hand-card-bottom">{{item.suitChar}}</view>
         </view>
-      </view>
+      </scroll-view>
+      <view class="hand-edge"></view>
     </view>
   </view>
 </view>

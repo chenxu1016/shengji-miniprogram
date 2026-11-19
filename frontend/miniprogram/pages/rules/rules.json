@@ -1,4 +1,5 @@
 {
   "navigationBarTitleText": "游戏规则",
-  "navigationBarBackgroundColor": "#1a3a2a"
+  "navigationBarBackgroundColor": "#1a3a2a",
+  "pageOrientation": "portrait"
 }
