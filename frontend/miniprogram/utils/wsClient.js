@@ -8,12 +8,13 @@
 // 服务器地址策略：
 // - 微信开发者工具（模拟器/多账号调试）：默认连本机 ws://localhost:8888（需先运行 start-backend.cmd）
 // - 真机调试：在首页填 ws://<电脑局域网IP>:8888，写入 storage 后优先使用
-// - 体验版/正式版（朋友玩）：默认直接连线上 Railway，避免先卡 localhost 再回退
+// - 体验版/正式版（朋友玩）：默认连公网 Render（免费），避免先卡 localhost 再回退
+//   Render 服务名见 render.yaml；若被占用导致域名变化，可在首页输入框手动覆盖。
 var DEFAULT_SERVER_URL = 'ws://localhost:8888';
-var BACKUP_SERVER_URL = 'wss://shengji-backend-production.up.railway.app';
+var BACKUP_SERVER_URL = 'wss://shengji-backend.onrender.com';
 
 // 判断是否为线上运行（体验版 trial / 正式版 release）：这类包跑在别人手机上，
-// localhost 指向手机自身必然失败，必须优先连公网 Railway。
+// localhost 指向手机自身必然失败，必须优先连公网 Render。
 function isRemoteBuild() {
   try {
     var env = wx.getAccountInfoSync ? wx.getAccountInfoSync().miniProgram.envVersion : '';
@@ -35,7 +36,7 @@ function buildCandidates() {
   var list = [];
   var custom = readCustomServerUrl();
   if (custom) list.push(custom);
-  // 体验版/正式版：Railway 优先，localhost 仅最后兜底（真机访问手机自身必失败）
+  // 体验版/正式版：Render 优先，localhost 仅最后兜底（真机访问手机自身必失败）
   if (isRemoteBuild()) {
     if (list.indexOf(BACKUP_SERVER_URL) < 0) list.push(BACKUP_SERVER_URL);
     if (list.indexOf(DEFAULT_SERVER_URL) < 0) list.push(DEFAULT_SERVER_URL);
@@ -344,7 +345,7 @@ function createWsClient() {
         if (self._intentionalClose) return; // 主动关闭，不重连
 
         // 从未连通过、且所有候选地址都试完了：通知 UI「连接失败」，提示用户改地址。
-        // 真机上默认 localhost 指向手机自己、备用 Railway 又可能不可用，必须让用户能察觉。
+        // 真机上默认 localhost 指向手机自己、备用 Render 首次唤醒需约 1 分钟，必须让用户能察觉。
         if (!self._everOpened && self._candidateIndex >= self._candidates.length - 1 && self._onConnectFailed) {
           try { self._onConnectFailed(self._candidates[self._candidateIndex]); } catch(e) {}
         }

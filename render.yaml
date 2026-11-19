@@ -1,11 +1,11 @@
-﻿services:
-  - name: shengji-backend
-    type: web
-    env: docker
-    region: frankfurt
-    plan: basic
-    healthCheckPath: /
-    disk:
-      name: shengji-data
-      mountPath: /data
-      sizeGB: 1
+﻿# Render 免费部署配置（Blueprint）
+# 前端地址：wss://shengji-backend.onrender.com
+services:
+  - type: web
+    name: shengji-backend
+    runtime: node
+    region: singapore
+    plan: free
+    buildCommand: cd backend && npm install && npx tsc
+    startCommand: cd backend && node dist/server.js
+    healthCheckPath: /health
