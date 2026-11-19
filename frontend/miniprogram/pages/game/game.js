@@ -764,10 +764,11 @@ Page({
           dealingDone: total,
           dealingText: "发牌完成"
         });
-        // 发完牌用完整会话手牌兜底重建一次：25 张始终完整展开，不因动画/刷新丢牌
-        self._fillMyHand(self.session || s);
-        self._updateTrumpDisplay(self.session || s);  // 用完整手牌刷新可亮花色
-        setTimeout(function() { self._startReverseCountdown(s); }, 400);
+        // 发完牌用「发牌开始时这份确定含完整手牌的会话」重建，25 张始终完整展开；
+        // 不要用 self.session（发牌 12 秒里可能已被叫牌/反牌消息换手牌数据）。
+        self._fillMyHand(s);
+        self._updateTrumpDisplay(s);  // 用完整手牌刷新可亮花色
+        setTimeout(function() { self._startReverseCountdown(self.session || s); }, 400);
         return;
       }
       // 上一张取消飞入动画，新到手的这一张带 dealing 标记
@@ -1097,6 +1098,12 @@ Page({
     if (!s || !s.players) return;
     var me = s.players[this.data.myIndex];
     if (!me || !me.hand) return;
+    // 守卫：若这份会话里自己的手牌为空（发牌期间被其它消息更新过的旧/错会话），
+    // 不要用空数组覆盖已经发到手的牌——否则表现就是"发完牌后牌突然全没了"。
+    if (me.hand.length === 0 && this.data.myHand && this.data.myHand.length > 0) {
+      console.warn("[Game] _fillMyHand 跳过：会话手牌为空但本地已有", this.data.myHand.length, "张");
+      return;
+    }
     var sorted = sortHandByRule(me.hand, s.trumpSuit, s.level);
     var deco = decorateHand(sorted.map(function(c, i) { return cardToHandItem(c, i); }), s.trumpSuit, s.level);
     this.setData({
