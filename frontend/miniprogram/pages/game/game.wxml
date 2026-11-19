@@ -152,7 +152,7 @@
       </view>
 
       <!-- 亮主 / 叫分 / 反牌 操作条：所有操作都在这条横栏里完成，无底部按钮栏 -->
-      <view class="bid-zone" wx:if="{{trumpDisplayVisible}}">
+      <view class="bid-zone" wx:if="{{bidZoneVisible}}">
         <view class="bid-banner">
           <text class="bid-tag">{{bidActionOpen ? '操作' : '亮主'}}</text>
           <text class="bid-caption">{{bidActionOpen ? bidActionCaption : trumpCaption}}</text>

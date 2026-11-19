@@ -254,6 +254,7 @@ Page({
     bankerSeat: -1,
     // 新增：中央亮主区
     trumpDisplayVisible: false,
+    bidZoneVisible: false,
     trumpChips: [
       { key: "big_joker",   label: "大王", suitClass: "suit-joker",   lit: false, dim: true },
       { key: "small_joker", label: "小王", suitClass: "suit-joker",   lit: false, dim: true },
@@ -608,6 +609,7 @@ Page({
       reverseCountdownActive: false,
       myHand: [], myHandCount: 0,
       trumpDisplayVisible: false,
+      bidZoneVisible: false,
       bidActionOpen: false,
       waitingText: ""
     });
@@ -1356,6 +1358,8 @@ Page({
     var keepOpen = this.data.bidActionOpen && this.data.bidActionState === s.state;
     this.setData({
       trumpDisplayVisible: visible,
+      // 叫牌横栏只在 bidding/reverse 显示；出牌阶段隐藏，让位给中央出牌区
+      bidZoneVisible: (s.state === "bidding" || s.state === "reverse"),
       trumpChips: chips,
       trumpCaption: caption,
       declarableSuits: declSuits,

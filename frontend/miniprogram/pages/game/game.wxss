@@ -806,7 +806,9 @@ page {
   .state-hint.dealing { font-size: 12rpx; padding: 2rpx 12rpx; }
   .deal-progress { display: none; }
 
-  .bid-zone { position: relative; top: auto; left: auto; transform: none; width: 420rpx; margin-top: 3rpx; flex-shrink: 0; }
+  /* 亮主/叫分横栏：改为绝对定位浮在牌桌正中，不参与 flex 高度分配，
+     否则矮窗口下会被座位卡片挤出可视区、被 overflow:hidden 裁掉 */
+  .bid-zone { position: absolute; top: 46%; left: 50%; transform: translate(-50%, -50%); width: 460rpx; margin-top: 0; flex-shrink: 0; z-index: 30; }
   .bid-banner { height: 18rpx; gap: 8rpx; margin-bottom: 2rpx; }
   .bid-tag { font-size: 12rpx; padding: 1rpx 10rpx; }
   .bid-caption { font-size: 14rpx; max-width: 320rpx; }
