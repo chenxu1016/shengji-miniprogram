@@ -99,9 +99,17 @@ Page({
         });
         // 优先用后端 joined 消息下发的权威座位号（昵称匹配在重名时会判错）
         var selfIdx = (typeof this.data.myIndex === 'number' && this.data.myIndex >= 0) ? this.data.myIndex : 0;
+        // 本窗口内存里若有服务端下发的权威座位号，优先用它（多账号调试共享 storage 不可信）
+        if (wsClient.localGet) {
+          var memIdx = wsClient.localGet('myIndex');
+          if (typeof memIdx === 'number' && memIdx >= 0) selfIdx = memIdx;
+        }
         if (selfIdx >= players.length) selfIdx = 0;
-        wx.setStorageSync('currentRoomId', msg.room.id);
-        wx.setStorageSync('myIndex', String(selfIdx));
+        try {
+          wx.setStorageSync('currentRoomId', msg.room.id);
+          wx.setStorageSync('myIndex', String(selfIdx));
+        } catch (e) {}
+        if (wsClient.localSet) wsClient.localSet('myIndex', selfIdx);
         // Store players with initial property for game page
         players = players.map(function(p) {
           var initial = p.name ? p.name.charAt(0).toUpperCase() : '?';
@@ -125,9 +133,17 @@ Page({
     // 后端单发：自己的权威座位号（建房=0，进房=实际序号，有人退出后会重发）
     wsClient.onMessage('joined', function(msg) {
       console.log('[Index] joined:', msg);
-      wx.setStorageSync('myIndex', String(msg.playerIndex));
-      wx.setStorageSync('currentRoomId', msg.roomId);
-      if (msg.playerId) wx.setStorageSync('playerId', msg.playerId);
+      try {
+        wx.setStorageSync('myIndex', String(msg.playerIndex));
+        wx.setStorageSync('currentRoomId', msg.roomId);
+        if (msg.playerId) wx.setStorageSync('playerId', msg.playerId);
+      } catch (e) {}
+      // ★ 本窗口内存同步：多账号调试各窗口共享 storage，座位号必须以本窗口内存为准
+      if (wsClient.localSet) {
+        wsClient.localSet('myIndex', msg.playerIndex);
+        wsClient.localSet('roomId', msg.roomId);
+        if (msg.playerId) wsClient.localSet('playerId', msg.playerId);
+      }
       if (wsClient && wsClient.saveIdentity) {
         wsClient.saveIdentity({ playerId: msg.playerId || '', roomId: msg.roomId, myIndex: msg.playerIndex });
       }
@@ -143,7 +159,10 @@ Page({
       // 3s 内重复的 gameStart 只处理一次，避免重复压栈多个牌桌页
       if (self._lastNavAt && now - self._lastNavAt < 3000) return;
       self._lastNavAt = now;
-      wx.setStorageSync('gameSession', JSON.stringify(msg.session));
+      // ★ 会话写本窗口内存（权威），storage 仅留作单窗口冷启动兜底。
+      // 多账号调试共享 storage，若只写 storage 4 个窗口会采纳同一份 session。
+      if (wsClient.localSet) wsClient.localSet('gameSession', msg.session);
+      try { wx.setStorageSync('gameSession', JSON.stringify(msg.session)); } catch (e) {}
       // 已经在牌桌页时只更新会话，由牌桌页自己处理 gameStart
       var onGame = getCurrentPages().some(function(p) { return p.route === 'pages/game/game'; });
       if (onGame) return;
@@ -293,11 +312,20 @@ Page({
       if (wsClient.saveIdentity) {
         wsClient.saveIdentity({ roomId: '', myIndex: -1 });
       }
+      // 同步清本窗口内存，否则下次进房仍带着旧座位号
+      if (wsClient.localSet) {
+        wsClient.localSet('myIndex', -1);
+        wsClient.localSet('roomId', '');
+        wsClient.localSet('gameSession', null);
+        wsClient.localSet('dealingShown', {});
+      }
     }
-    wx.removeStorageSync('currentRoomId');
+    try {
+      wx.removeStorageSync('currentRoomId');
     wx.removeStorageSync('myIndex');
-    wx.removeStorageSync('roomPlayers');
-    wx.removeStorageSync('gameSession');
+      wx.removeStorageSync('roomPlayers');
+      wx.removeStorageSync('gameSession');
+    } catch (e) {}
     this.setData({
       inRoom: false,
       currentRoomId: '',

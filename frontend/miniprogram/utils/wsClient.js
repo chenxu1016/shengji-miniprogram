@@ -45,6 +45,29 @@ function setServerUrl(url) {
 // 全局单例
 var wsClient = null;
 
+// ===== 本窗口私有状态（内存，不落 storage）=====
+// 微信开发者工具「多账号调试」的多个窗口共享同一份 wx.Storage，
+// 但每个窗口有独立的 JS 运行时内存。playerId / myIndex / gameSession /
+// dealingShown 这类「我是谁、我这局的状态」必须存内存，否则 4 个窗口
+// 互相覆盖，表现为「四人同不了桌 / 只看得到一家牌 / 都以为自己是座位0」。
+// 内存里没有时（冷启动）才回退到 storage。
+var _local = {
+  playerId: '',
+  myIndex: -1,
+  roomId: '',
+  gameSession: null,   // 已解析对象，不是字符串
+  dealingShown: {}     // key: sessionId -> true
+};
+function localGet(key) { return _local[key]; }
+function localSet(key, val) { _local[key] = val; }
+function localClear() {
+  _local.playerId = '';
+  _local.myIndex = -1;
+  _local.roomId = '';
+  _local.gameSession = null;
+  _local.dealingShown = {};
+}
+
 // 指数退避：1s, 2s, 4s, 8s, 16s, 30s（上限）
 var RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000, 30000];
 
@@ -131,6 +154,10 @@ function createWsClient() {
     clearRoom: function() {
       this._savedRoomId = '';
       this._savedMyIndex = -1;
+      _local.roomId = '';
+      _local.myIndex = -1;
+      _local.gameSession = null;
+      _local.dealingShown = {};
       try {
         wx.removeStorageSync('currentRoomId');
         wx.removeStorageSync('myIndex');
@@ -262,16 +289,18 @@ function createWsClient() {
           var msg = JSON.parse(res.data);
           console.log('[WS] Received:', msg.type);
           // joined 是后端下发的权威身份：座位号 + playerId。
-          // 统一在这里回写 storage，避免多开窗口共享 playerId 时互相顶替座位，
-          // 也让断线自动 rejoin 永远用同一个 ID。
+          // 多账号调试时各窗口共享 storage，所以身份必须写进「本窗口内存」，
+          // 否则后加入者回写 storage 会把先加入者的座位号覆盖掉。
           if (msg.type === 'joined') {
             if (msg.playerId) {
               self._savedPlayerId = msg.playerId;
+              _local.playerId = msg.playerId;
               try { wx.setStorageSync('playerId', msg.playerId); } catch (e) {}
             }
-            if (msg.roomId) self._savedRoomId = msg.roomId;
+            if (msg.roomId) { self._savedRoomId = msg.roomId; _local.roomId = msg.roomId; }
             if (typeof msg.playerIndex === 'number' && msg.playerIndex >= 0) {
               self._savedMyIndex = msg.playerIndex;
+              _local.myIndex = msg.playerIndex;
               try { wx.setStorageSync('myIndex', String(msg.playerIndex)); } catch (e) {}
             }
           }
@@ -340,14 +369,19 @@ function createWsClient() {
 // 生成客户端稳定身份标识（playerId），用于断线重连时匹配原座位。
 // 优先读本地存储，避免每次进入都变；存到 wx storage 持久化。
 function getOrCreatePlayerId() {
+  // 1) 本窗口内存优先（多账号调试时各窗口彼此独立，这是权威来源）
+  if (_local.playerId) return _local.playerId;
   try {
+    // 2) 冷启动兜底：storage 里有就沿用（仅供单窗口真机重连；多开时下面 joined 会用服务端下发的权威 ID 覆盖内存）
     var pid = wx.getStorageSync('playerId');
-    if (pid) return pid;
-    pid = 'u_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9);
-    wx.setStorageSync('playerId', pid);
+    if (!pid) {
+      pid = 'u_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9);
+    }
+    _local.playerId = pid;
     return pid;
   } catch (e) {
-    return 'u_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9);
+    _local.playerId = _local.playerId || ('u_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9));
+    return _local.playerId;
   }
 }
 
@@ -356,6 +390,10 @@ module.exports = {
   getOrCreatePlayerId: getOrCreatePlayerId,
   getServerUrl: getServerUrl,
   setServerUrl: setServerUrl,
+  // 本窗口私有状态：多账号调试时替代共享 storage 存身份/会话
+  localGet: localGet,
+  localSet: localSet,
+  localClear: localClear,
   DEFAULT_SERVER_URL: DEFAULT_SERVER_URL,
   BACKUP_SERVER_URL: BACKUP_SERVER_URL,
   SERVER_URL: DEFAULT_SERVER_URL

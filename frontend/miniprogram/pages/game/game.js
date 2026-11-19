@@ -315,17 +315,25 @@ Page({
       return {...p, initial: initial};
     });
 
-    // 优先使用后端 joined 消息下发的权威座位号（index 页已存入 storage）
+    // ★ 权威座位号：优先「本窗口内存」（joined 时写入，多账号调试各窗口独立）。
+    // 绝不能优先读共享 storage —— 多开时 4 个窗口会读到最后一个写入者的座位号，
+    // 表现就是所有人都以为自己是同一个座位、只看得到一家的牌。
+    var memIdx = wsClient.localGet ? wsClient.localGet('myIndex') : -1;
     var myIndex = 0;
-    var storedIdx = wx.getStorageSync("myIndex");
-    if (storedIdx !== "" && storedIdx !== null && !isNaN(parseInt(storedIdx))) {
-      myIndex = parseInt(storedIdx);
+    if (typeof memIdx === "number" && memIdx >= 0) {
+      myIndex = memIdx;
     } else {
-      // 兜底：昵称匹配（重名时不可靠）
-      var storedName = wx.getStorageSync("playerName") || "";
-      if (storedName && players.length > 0) {
-        var foundIdx = players.findIndex(function(p){return p.name === storedName;});
-        if (foundIdx >= 0) myIndex = foundIdx;
+      // 冷启动兜底：单窗口场景 storage 仍可用；多开时会在 joined 到达后被内存值纠正
+      var storedIdx = wx.getStorageSync("myIndex");
+      if (storedIdx !== "" && storedIdx !== null && !isNaN(parseInt(storedIdx))) {
+        myIndex = parseInt(storedIdx);
+      } else {
+        // 兜底：昵称匹配（重名时不可靠）
+        var storedName = wx.getStorageSync("playerName") || "";
+        if (storedName && players.length > 0) {
+          var foundIdx = players.findIndex(function(p){return p.name === storedName;});
+          if (foundIdx >= 0) myIndex = foundIdx;
+        }
       }
     }
     // Ensure myIndex is within bounds
@@ -418,11 +426,20 @@ Page({
     // 本页注册处理器时早已错过。index 页跳转前把 session 存进了 storage，这里直接采用。
     // ★ 关键：采纳 session 时必须先播发牌动画（如果本会话还没播过），再让 refreshUI 接管。
     // 防止重复触发：用 storage 记录 "已播过发牌的 sessionId"，同一会话只在首次进入时播放。
-    var pendingSession = wx.getStorageSync("gameSession");
+    // ★ 会话必须从「本窗口内存」取。index 页收到 gameStart 后存在内存里，
+    // 多账号调试时若走共享 storage，4 个窗口会采纳同一份 session、算成同一座位。
+    var pendingSession = wsClient.localGet ? wsClient.localGet("gameSession") : null;
+    // 冷启动兜底：单窗口场景 storage 仍可恢复
+    if (!pendingSession) {
+      var storedSession = wx.getStorageSync("gameSession");
+      if (storedSession) {
+        try { pendingSession = JSON.parse(storedSession); } catch (e) {}
+      }
+    }
     // 旁观者不进入牌桌，只保留大厅/座位视图
     if (pendingSession && this.data.seated) {
       try {
-        var sess = JSON.parse(pendingSession);
+        var sess = pendingSession;
         if (sess && sess.state && sess.state !== "finished") {
           console.log("[Game] Adopting pending gameSession from storage, state=", sess.state);
           this.session = sess;
@@ -440,8 +457,9 @@ Page({
 
           // 决定是否播发牌动画：本会话首次进入、且处于叫分/反主阶段（牌刚发完）才播逐张动画
           // 进入时若已在出牌/结算阶段，直接刷新 UI（不重播发牌）
-          var alreadyShownKey = "dealingShown_" + (sess.id || roomId);
-          var alreadyShown = wx.getStorageSync(alreadyShownKey);
+          // 发牌动画标记也走本窗口内存：多开时共享 storage 会让别的窗口以为"已播过"而跳过动画
+          var shownMap = (wsClient.localGet && wsClient.localGet("dealingShown")) || {};
+          var alreadyShown = shownMap[sess.id || roomId] || wx.getStorageSync("dealingShown_" + (sess.id || roomId));
           var st = sess.state;
           if (!alreadyShown && (st === "bidding" || st === "reverse") && sess.players && sess.players[this.data.myIndex]
               && sess.players[this.data.myIndex].hand && sess.players[this.data.myIndex].hand.length > 0) {
@@ -546,6 +564,12 @@ Page({
       wx.setStorageSync("currentRoomId", rid);
       if (msg.playerId) wx.setStorageSync("playerId", msg.playerId);
     } catch (e) {}
+    // ★ 本窗口内存同步（多账号调试权威来源，不受共享 storage 覆盖影响）
+    if (wsClient.localSet) {
+      wsClient.localSet("myIndex", idx);
+      wsClient.localSet("roomId", rid);
+      if (msg.playerId) wsClient.localSet("playerId", msg.playerId);
+    }
     if (wsClient && wsClient.setSpectatorMode) wsClient.setSpectatorMode(false);
     if (wsClient && wsClient.saveIdentity) {
       wsClient.saveIdentity({ roomId: rid, myIndex: idx, playerId: msg.playerId || "" });
@@ -639,9 +663,16 @@ Page({
     }
     this._clearAutoStart();
     this.setData({ roomInGame: true });
-    // 服务端重启后 session.id 可能重复，先清掉上一局遗留的"发牌已播"闸门
-    try { wx.removeStorageSync("dealingShown_" + (msg.session.id || this.data.roomId)); } catch (e) {}
+    // 服务端重启后 session.id 可能重复，先清掉上一局遗留的"发牌已播"闸门（内存+storage 都清）
+    var gateKey = msg.session.id || this.data.roomId;
+    if (wsClient.localGet && wsClient.localSet) {
+      var shownMap = wsClient.localGet("dealingShown") || {};
+      delete shownMap[gateKey];
+      wsClient.localSet("dealingShown", shownMap);
+    }
+    try { wx.removeStorageSync("dealingShown_" + gateKey); } catch (e) {}
     this.session = msg.session;
+    if (wsClient && wsClient.localSet) wsClient.localSet("gameSession", msg.session);
     wx.setStorageSync("gameSession", JSON.stringify(msg.session));
     // 注意：dealingShown 标记改到 _animateDeal 播完时才置位，避免提前置位导致
     // onLoad 采纳 session 时误判"已播过"而跳过逐张发牌动画
@@ -673,7 +704,8 @@ Page({
     console.log("[Game] cardsDealt", msg);
     if (this.data.gameStarted) {
       this.session = msg.session;
-      wx.setStorageSync("gameSession", JSON.stringify(msg.session));
+      if (wsClient && wsClient.localSet) wsClient.localSet("gameSession", msg.session);
+    wx.setStorageSync("gameSession", JSON.stringify(msg.session));
       this.refreshUI();
       return;
     }
@@ -716,7 +748,11 @@ Page({
     function next() {
       if (k >= total) {
         self._dealAnimating = false;
-        wx.setStorageSync("dealingShown_" + (s.id || self.data.roomId), "1");
+        var shownKey = s.id || self.data.roomId;
+        var shownMap = (wsClient.localGet && wsClient.localGet("dealingShown")) || {};
+        shownMap[shownKey] = true;
+        if (wsClient.localSet) wsClient.localSet("dealingShown", shownMap);
+        wx.setStorageSync("dealingShown_" + shownKey, "1");
         var clean = self.data.myHand.map(function(x) {
           return Object.assign({}, x, { dealing: false });
         });
@@ -937,6 +973,7 @@ Page({
   _onBidResult: function(msg) {
     console.log("[Game] bidResult", msg);
     this.session = msg.session;
+    if (wsClient && wsClient.localSet) wsClient.localSet("gameSession", msg.session);
     wx.setStorageSync("gameSession", JSON.stringify(msg.session));
     this.setData({showSuitSelector: false, waitingText: "等待其他玩家叫分...", bidActionOpen: false, bidActionState: ""});
     this.refreshUI();
@@ -951,6 +988,7 @@ Page({
   _onReverseResult: function(msg) {
     console.log("[Game] reverseResult", msg);
     this.session = msg.session;
+    if (wsClient && wsClient.localSet) wsClient.localSet("gameSession", msg.session);
     wx.setStorageSync("gameSession", JSON.stringify(msg.session));
     this.setData({ bidActionOpen: false, bidActionState: "" });
     this.refreshUI();
@@ -966,6 +1004,7 @@ Page({
   _onDealerSwitched: function(msg) {
     console.log("[Game] dealerSwitched", msg);
     this.session = msg.session;
+    if (wsClient && wsClient.localSet) wsClient.localSet("gameSession", msg.session);
     wx.setStorageSync("gameSession", JSON.stringify(msg.session));
     this.setData({ bidActionOpen: false, bidActionState: "" });
     this.refreshUI();
@@ -977,6 +1016,7 @@ Page({
   _onPlayResult: function(msg) {
     console.log("[Game] playResult", msg);
     this.session = msg.session;
+    if (wsClient && wsClient.localSet) wsClient.localSet("gameSession", msg.session);
     wx.setStorageSync("gameSession", JSON.stringify(msg.session));
     this.refreshUI();
     // 进入出牌（或新一轮重置）时停掉反牌/叫分倒计时
@@ -989,6 +1029,7 @@ Page({
   _onRoundEnd: function(msg) {
     console.log("[Game] roundEnd", msg);
     this.session = msg.session;
+    if (wsClient && wsClient.localSet) wsClient.localSet("gameSession", msg.session);
     wx.setStorageSync("gameSession", JSON.stringify(msg.session));
     this._stopPhaseTimer();
     this.setData({ reverseCountdownActive: false, reverseCountdown: 0 });
@@ -1035,6 +1076,7 @@ Page({
     if (!msg.session || !this.data.seated) return;
     this._clearAutoStart();
     this.session = msg.session;
+    if (wsClient && wsClient.localSet) wsClient.localSet("gameSession", msg.session);
     wx.setStorageSync("gameSession", JSON.stringify(msg.session));
     this.setData({
       gameStarted: true,
