@@ -84,6 +84,7 @@ function createWsClient() {
     _onConnect: null,
     _onDisconnect: null,
     _onReconnecting: null,
+    _onConnectFailed: null,
     _connectCallbacks: [],   // 多个 onConnect 回调都保留
     _disconnectCallbacks: [], // 多个 onDisconnect 回调
     _reconnectCallbacks: [],  // 多个 onReconnecting 回调
@@ -113,6 +114,9 @@ function createWsClient() {
     },
     onReconnecting: function(fn) {
       if (fn) this._reconnectCallbacks.push(fn);
+    },
+    onConnectFailed: function(fn) {
+      this._onConnectFailed = fn;
     },
     onMessage: function(type, fn) {
       if (!this._messageHandlers[type]) this._messageHandlers[type] = [];
@@ -321,6 +325,12 @@ function createWsClient() {
         self._connecting = false;
 
         if (self._intentionalClose) return; // 主动关闭，不重连
+
+        // 从未连通过、且所有候选地址都试完了：通知 UI「连接失败」，提示用户改地址。
+        // 真机上默认 localhost 指向手机自己、备用 Railway 又可能不可用，必须让用户能察觉。
+        if (!self._everOpened && self._candidateIndex >= self._candidates.length - 1 && self._onConnectFailed) {
+          try { self._onConnectFailed(self._candidates[self._candidateIndex]); } catch(e) {}
+        }
 
         // 从未连通过任何服务器：立即换下一个候选地址重试（不等退避计时器）。
         // 这样「本地后端没启动」时会自动尝试备用地址，且不会一直弹「重连中」遮罩。

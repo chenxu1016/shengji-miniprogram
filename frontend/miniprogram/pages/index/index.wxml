@@ -4,10 +4,15 @@
     <text class="subtitle">四人在线对战</text>
   </view>
 
-  <!-- 未连接状态 -->
+  <!-- 未连接状态：必须在这里就能改服务器地址，否则真机连不上时无法填局域网 IP（死锁） -->
   <view class="section" wx:if="{{!connected}}">
-    <view class="status-text">正在连接服务器...</view>
-    <view class="server-hint">若一直连不上：先运行项目根目录的 start-backend.cmd，再点「切换」重连</view>
+    <view class="status-text">{{connectFailed ? '连接失败，请检查服务器地址' : '正在连接服务器...'}}</view>
+    <view class="server-row">
+      <input class="server-input" placeholder="ws://192.168.x.x:8888" value="{{serverUrlInput}}" bindinput="onServerUrlInput" />
+      <button class="server-apply" bindtap="onApplyServerUrl">切换</button>
+    </view>
+    <view class="server-hint">真机调试：电脑先运行 start-backend.cmd，手机连同一 WiFi，这里填电脑局域网 IP（如 ws://192.168.1.5:8888）。模拟器测试留空即可。</view>
+    <view class="server-hint">当前尝试：{{serverUrl}}</view>
   </view>
 
   <!-- 已连接 - 房间大厅 -->

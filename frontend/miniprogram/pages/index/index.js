@@ -22,6 +22,7 @@ function buildRoomSeats(players, myIndex) {
 Page({
   data: {
     connected: false,
+    connectFailed: false,
     inRoom: false,
     currentRoomId: '',
     roomPlayers: [],
@@ -68,7 +69,8 @@ Page({
 
     wsClient.onConnect(function() {
       console.log('[Index] Connected to server');
-      // Fetch existing rooms
+      this.setData({ connectFailed: false });
+      // Fetch existing rooms（收到 roomList 后才置 connected=true，避免大厅空着闪一下）
       wsClient.send({ type: 'getRooms' });
       // 好友经分享卡片进入：连上后自动加入对应房间
       if (this._shareRoomId && !this.data.inRoom) {
@@ -77,6 +79,11 @@ Page({
         var pid = wsClient.getOrCreatePlayerId ? wsClient.getOrCreatePlayerId() : '';
         wsClient.send({ type: 'joinRoom', roomId: rid, name: wx.getStorageSync('playerName') || '玩家', nickname: wx.getStorageSync('playerNickname') || '', avatar: wx.getStorageSync('playerAvatar') || '', playerId: pid });
       }
+    }.bind(this));
+
+    wsClient.onConnectFailed(function(lastUrl) {
+      console.log('[Index] 所有服务器候选均连接失败，最后尝试:', lastUrl);
+      this.setData({ connectFailed: true });
     }.bind(this));
 
     wsClient.onMessage('roomUpdate', function(msg) {
