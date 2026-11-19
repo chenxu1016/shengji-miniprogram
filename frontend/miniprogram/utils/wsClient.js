@@ -5,27 +5,44 @@
  * - 断线后自动重连，恢复座位和准备状态
  */
 
-// 服务器地址：
-// - 默认连本机后端 ws://localhost:8888（微信开发者工具模拟器可直接连，需先运行根目录 start-backend.cmd）
-// - 真机调试：在首页「服务器地址」填 ws://<电脑局域网IP>:8888，会写入 storage 并优先使用
-// - 线上 Railway 地址当前返回 404 Application not found，仅作为本地未启动时的备用尝试
+// 服务器地址策略：
+// - 微信开发者工具（模拟器/多账号调试）：默认连本机 ws://localhost:8888（需先运行 start-backend.cmd）
+// - 真机调试：在首页填 ws://<电脑局域网IP>:8888，写入 storage 后优先使用
+// - 体验版/正式版（朋友玩）：默认直接连线上 Railway，避免先卡 localhost 再回退
 var DEFAULT_SERVER_URL = 'ws://localhost:8888';
 var BACKUP_SERVER_URL = 'wss://shengji-backend-production.up.railway.app';
+
+// 判断是否为线上运行（体验版 trial / 正式版 release）：这类包跑在别人手机上，
+// localhost 指向手机自身必然失败，必须优先连公网 Railway。
+function isRemoteBuild() {
+  try {
+    var env = wx.getAccountInfoSync ? wx.getAccountInfoSync().miniProgram.envVersion : '';
+    return env === 'trial' || env === 'release';
+  } catch (e) { return false; }
+}
 
 function readCustomServerUrl() {
   try { return wx.getStorageSync('serverUrl') || ''; } catch (e) { return ''; }
 }
 
 function getServerUrl() {
-  return readCustomServerUrl() || DEFAULT_SERVER_URL;
+  var custom = readCustomServerUrl();
+  if (custom) return custom;
+  return isRemoteBuild() ? BACKUP_SERVER_URL : DEFAULT_SERVER_URL;
 }
 
 function buildCandidates() {
   var list = [];
   var custom = readCustomServerUrl();
   if (custom) list.push(custom);
-  if (list.indexOf(DEFAULT_SERVER_URL) < 0) list.push(DEFAULT_SERVER_URL);
-  if (list.indexOf(BACKUP_SERVER_URL) < 0) list.push(BACKUP_SERVER_URL);
+  // 体验版/正式版：Railway 优先，localhost 仅最后兜底（真机访问手机自身必失败）
+  if (isRemoteBuild()) {
+    if (list.indexOf(BACKUP_SERVER_URL) < 0) list.push(BACKUP_SERVER_URL);
+    if (list.indexOf(DEFAULT_SERVER_URL) < 0) list.push(DEFAULT_SERVER_URL);
+  } else {
+    if (list.indexOf(DEFAULT_SERVER_URL) < 0) list.push(DEFAULT_SERVER_URL);
+    if (list.indexOf(BACKUP_SERVER_URL) < 0) list.push(BACKUP_SERVER_URL);
+  }
   return list;
 }
 
@@ -400,6 +417,7 @@ module.exports = {
   getOrCreatePlayerId: getOrCreatePlayerId,
   getServerUrl: getServerUrl,
   setServerUrl: setServerUrl,
+  isRemoteBuild: isRemoteBuild,
   // 本窗口私有状态：多账号调试时替代共享 storage 存身份/会话
   localGet: localGet,
   localSet: localSet,
